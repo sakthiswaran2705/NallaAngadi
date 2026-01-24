@@ -19,8 +19,8 @@ from shop_views import router as shop_views_router
 from register_automatic import router as register_auto
 from pathlib import Path
 app = FastAPI(
-    title="RK-DIAL API",
-    description="API endpoints for RK-Dial Application",
+    title="NallaAngadi API",
+    description="API endpoints for NallaAngadi Application",
     version="1.0.0",
     docs_url="/api/",
     redoc_url=None
