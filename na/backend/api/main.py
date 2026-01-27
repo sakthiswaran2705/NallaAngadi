@@ -1,0 +1,76 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
+from fastapi import Request
+from get_top_rate import router as get_top
+# Import Routers
+from search_shops import router as search_router
+from shop_owner_details import router as owner_router
+from searched_detail_showhome import router as searched_detail_router
+from offers_city import router as slideshow_router
+from offers_list import router as offer_router
+from offers_for_every_shop import router as every_shop
+# from translate_api import router as translate_router
+#from city_creation import router as city
+from jobs_get import router as jobs_router
+from payments import  router as payment_router
+from dotenv import load_dotenv
+import os
+from uravugal import router as uravugal_router
+from otp_mail import router as otp_router
+from notifications_setting import router as notification_settings_router
+from shop_views import router as shop_views_router
+#from account_create_auto import router as account_router
+#from register_automatic import  router as register_auto
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+
+
+app = FastAPI(
+    title="NallaAngadi-Api",
+    description="API endpoints for NallaAngadi Application",
+    version="1.0.0",
+    docs_url="/api/",
+    redoc_url=None
+)
+
+# -------------------- STATIC FILES --------------------
+app.mount("/media", StaticFiles(directory="media"), name="media")
+origins = [
+    "http://localhost:5173",  # React (Vite) default port
+    "http://localhost:3000",  # React (CRA) default port
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+]
+# -------------------- CORS --------------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# -------------------- ROUTERS --------------------
+app.include_router(search_router)
+app.include_router(owner_router)
+app.include_router(searched_detail_router)
+app.include_router(slideshow_router)
+app.include_router(offer_router)
+app.include_router(every_shop)
+#app.include_router(translate_router)
+#app.include_router(city)
+app.include_router(jobs_router)
+app.include_router(payment_router)
+app.include_router(uravugal_router)
+app.include_router(otp_router)
+app.include_router(notification_settings_router)
+app.include_router(shop_views_router)
+app.include_router(get_top)
+# -------------------- ROOT --------------------
+@app.get("/")
+def root():
+    return {"message": "Multiple APIs running!"}
