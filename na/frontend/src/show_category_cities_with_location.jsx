@@ -6,11 +6,9 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 
 import Navbar from "./Navbar.jsx";
-// 👇 ENSURE THIS IMAGE PATH IS CORRECT IN YOUR PROJECT
+// 👇 ENSURE THIS IMAGE PATH IS CORRECT
 import heroBgImage from "./image_cc786f.jpg";
-
 const API_BASE = import.meta.env.VITE_BACKEND_URL;
-
 // ---------------- DEBOUNCE HOOK ----------------
 const useDebounce = (callback, delay) => {
     const timer = useRef(null);
@@ -199,7 +197,7 @@ function Val() {
         );
     };
 
-    // ---------------- 5. SEARCH LOGIC ----------------
+    // ---------------- 5. SEARCH LOGIC (FIXED) ----------------
     const fetchCategorySuggestions = async (value) => {
         if (!value.trim()) { setSuggestions([]); return; }
 
@@ -280,9 +278,7 @@ function Val() {
         const fetchSlides = async () => {
             setIsSlidesLoading(true);
             try {
-                // Using input city for slides, fallback to Thanjavur if specific logic needed
-                const cityForSlides = cityInput || 'thanjavur';
-                const res = await fetch(`${API_BASE}/offers/${encodeURIComponent(cityForSlides)}/?lang=${lang}`, { signal: controller.signal });
+                const res = await fetch(`${API_BASE}/offers/${encodeURIComponent('thanjavur')}/?lang=${lang}`, { signal: controller.signal });
                 const json = await res.json();
                 if (json.status) {
                     setSlides((json.slides || []).map((off) => ({
@@ -750,23 +746,17 @@ function Val() {
                                     <motion.div
                                         key={idx}
                                         className="shop-card"
+                                        // ✅ FIXED: Navigation uses state like SearchResults.jsx
                                         onClick={() => {
-                                            // ✅ FIXED: Pass _id correctly (mapped from shop_id)
-                                            // This allows ShopDetails to fetch the missing contact info
                                             const shopData = {
-                                                _id: shop.shop_id, // Map the ID correctly!
+                                                _id: shop.shop_id, // Ensure ID matches ShopDetails check
                                                 shop_name: shop.shop_name,
                                                 main_image: shop.image,
-                                                category_name: shop.category_name,
-                                                average_rating: shop.average_rating
+                                                // Add other fields if needed for display before full fetch
                                             };
                                             const cityData = {
                                                 city_name: shop.city
                                             };
-
-                                            // Clear old search context so "Related Shops" can fallback to fetching by city
-                                            sessionStorage.removeItem("SEARCH_CONTEXT_SHOPS");
-
                                             navigate("/shop", { state: { shop: shopData, city: cityData } });
                                         }}
                                         whileHover={{ y: -5 }}
@@ -861,3 +851,4 @@ function Val() {
 }
 
 export default Val;
+

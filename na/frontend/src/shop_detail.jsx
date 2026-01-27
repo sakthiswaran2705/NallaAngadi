@@ -60,70 +60,45 @@ function ShopDetails() {
   // USER INFO
   const loggedInUserId = localStorage.getItem("USER_ID") || "";
 
-  // RESTORE STATE LOGIC
-  let restoredState = state;
-  if (!restoredState) {
+  // --------------------------------------------------------
+  // ⭐ FIX: ROBUST DATA EXTRACTION LOGIC
+  // --------------------------------------------------------
+  
+  // 1. Get Raw Data from Location or Storage
+  let rawData = state;
+  if (!rawData) {
     const savedLogin = sessionStorage.getItem("REDIRECT_AFTER_LOGIN");
     if (savedLogin) {
-      restoredState = JSON.parse(savedLogin);
+      rawData = JSON.parse(savedLogin);
       sessionStorage.removeItem("REDIRECT_AFTER_LOGIN");
     }
   }
-  if (!restoredState) {
+  if (!rawData) {
     const saved = sessionStorage.getItem("SELECTED_SHOP");
-    if (saved) restoredState = JSON.parse(saved);
+    if (saved) rawData = JSON.parse(saved);
   }
 
-  // NO DATA HANDLER
-  if (!restoredState?.shop) {
-    return (
-      <>
-        <Navbar />
-        <div className="container mt-5 text-center">
-            <div className="alert alert-warning d-inline-block p-4">
-                <h4>{t("noShopData")}</h4>
-                <button className="btn btn-dark mt-3" onClick={() => navigate("/")}>
-                    {t("backToResults")}
-                </button>
-            </div>
-        </div>
-      </>
-    );
-  }
-
-  const normalizeShop = (data) => {
-    if (!data) return {};
-    if (data._id) return data;
-    if (data.shop?._id) return data.shop;
-    return data;
+  // 2. Helper to find the actual Shop Object deeply
+  const extractShop = (data) => {
+    if (!data) return null;
+    // Case A: The data itself is the shop (Direct object from High Rated/Search)
+    if (data._id && data.shop_name) return data; 
+    // Case B: Standard structure { shop: { ... } }
+    if (data.shop && data.shop._id) return data.shop;
+    // Case C: Nested structure { shop: { shop: { ... } } }
+    if (data.shop?.shop?._id) return data.shop.shop;
+    return null;
   };
 
-  const shopDoc = normalizeShop(restoredState.shop);
-  const cityDoc = restoredState.city || restoredState.shop?.city || {};
+  // 3. Extract Shop and City
+  const shopDoc = extractShop(rawData);
+  // Try to find city in rawData.city OR inside the shopDoc itself
+  const cityDoc = rawData?.city || shopDoc?.city || {};
+  
   const shopId = shopDoc?._id;
+  const getField = (key) => shopDoc?.[key] ?? "";
 
-  // ⭐ NEW STATE FOR FULL DETAILS (Fetched from API)
-  const [fullShopDetails, setFullShopDetails] = useState({});
-
-  // ⭐ DEBUG STATE (To see what the server is actually sending)
-  const [debugLog, setDebugLog] = useState({ message: "Waiting for fetch..." });
-
-  // ⭐ ROBUST GET FIELD (Checks Arrays and Alternate Names)
-  const getField = (key) => {
-    // 1. Check fetched data
-    let val = fullShopDetails?.[key];
-
-    // 2. If empty, check alternate keys (Common Database Variations)
-    if (!val && key === 'phone_number') val = fullShopDetails?.phone || fullShopDetails?.mobile || fullShopDetails?.contact || fullShopDetails?.mobile_number;
-    if (!val && key === 'email') val = fullShopDetails?.mail || fullShopDetails?.email_id;
-    if (!val && key === 'address') val = fullShopDetails?.addr || fullShopDetails?.location || fullShopDetails?.shop_address || fullShopDetails?.street;
-    if (!val && key === 'landmark') val = fullShopDetails?.near_by || fullShopDetails?.land_mark;
-
-    // 3. Fallback to passed state
-    if (!val) val = shopDoc?.[key];
-
-    return val || "";
-  };
+  // --------------------------------------------------------
 
   // MEDIA STATE
   const [mediaList, setMediaList] = useState([]);
@@ -143,6 +118,23 @@ function ShopDetails() {
   // VIEW COUNT STATE
   const [views, setViews] = useState(0);
 
+  // NO DATA HANDLER
+  if (!shopId) {
+    return (
+      <>
+        <Navbar />
+        <div className="container mt-5 text-center">
+            <div className="alert alert-warning d-inline-block p-4">
+                <h4>{t("noShopData")}</h4>
+                <button className="btn btn-dark mt-3" onClick={() => navigate("/")}>
+                    {t("backToResults")}
+                </button>
+            </div>
+        </div>
+      </>
+    );
+  }
+
   // HELPER: Recalculate Rating
   const recalculateAvgRating = (currentReviews) => {
     if (currentReviews?.length > 0) {
@@ -157,50 +149,17 @@ function ShopDetails() {
       setVisibleReviewCount(reviews.length);
   };
 
-  // ==========================================================
-  // ⭐ EFFECT HOOKS
-  // ==========================================================
-
-  // 0. SET READY STATE & FETCH FULL DETAILS
+  // 0. SET READY STATE
   useEffect(() => {
     if (shopId) {
         setReady(true);
-        window.scrollTo(0, 0);
-
-        // ⭐ UPDATE: ADDED TOKEN HEADER
-        // Some backends hide contact info if no token is sent.
-        const token = localStorage.getItem("ACCESS_TOKEN");
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-        setDebugLog({ message: "Fetching...", url: `${API_BASE}/shop/${shopId}` });
-
-        fetch(`${API_BASE}/shop/${shopId}`, { headers })
-            .then((res) => res.json())
-            .then((json) => {
-                // ⭐ UPDATE: Set Debug Log
-                setDebugLog(json);
-
-                if (json.status) {
-                    let data = json.data || json.shop || json.result || {};
-                    // If API returns an array [ {...} ], take the first item
-                    if (Array.isArray(data)) {
-                        data = data.length > 0 ? data[0] : {};
-                    }
-                    setFullShopDetails(data);
-                }
-            })
-            .catch(err => {
-                console.error("Full details fetch error:", err);
-                setDebugLog({ error: err.message });
-            });
-    } else {
-        setDebugLog({ error: "Shop ID is missing/undefined in state" });
     }
   }, [shopId]);
 
   // 1. LOAD SHOP MEDIA
   useEffect(() => {
     if (!shopId) return;
+    window.scrollTo(0, 0); // Scroll to top when shopId changes
 
     fetch(`${API_BASE}/shop/${shopId}/media/`)
       .then((res) => res.json())
@@ -242,51 +201,42 @@ function ShopDetails() {
   useEffect(() => {
       if (!shopId) return;
 
+      // First, try to retrieve the search context
       let all = JSON.parse(sessionStorage.getItem("SEARCH_CONTEXT_SHOPS"));
-
-      if (all && all.length > 0) {
-          const filtered = all.filter((item) => {
-             const s = item.shop || item.shop?.shop || item;
-             return s._id !== shopId;
-          });
-          setRelatedShops(
-            filtered.map((item) => ({
-               shop: item.shop || item.shop?.shop || item,
-               city: item.city || item.shop?.city || {},
-            }))
-          );
-      } else {
-          // Fallback to fetch via API
-          const cityName = cityDoc.city_name || getField('city') || '';
-          if(cityName) {
-             fetch(`${API_BASE}/shops/top-rated?city=${encodeURIComponent(cityName)}&limit=5`)
-                .then(res => res.json())
-                .then(json => {
-                    if(json.status && json.data) {
-                        const filtered = json.data.filter(s => s.shop_id !== shopId);
-                        setRelatedShops(filtered.map(s => ({
-                            shop: {
-                                _id: s.shop_id,
-                                shop_name: s.shop_name,
-                                main_image: s.image,
-                                category_name: s.category_name
-                            },
-                            city: { city_name: s.city }
-                        })));
-                    }
-                })
-                .catch(err => console.error(err));
-          }
+      // Fallback: If no search context, look for Home Results
+      if (!all || all.length === 0) {
+          all = JSON.parse(sessionStorage.getItem("HOME_RESULTS")) || [];
       }
-  }, [shopId, cityDoc, fullShopDetails]);
 
-  // 4. UPDATE VIEW COUNT
+      if (all.length === 0) return;
+
+      // Filter out the current shop from the list
+      const filtered = all.filter((item) => {
+         // Handle different structures in related/search data
+         const s = item._id ? item : (item.shop || item.shop?.shop);
+         return s && s._id !== shopId;
+      });
+
+      setRelatedShops(
+        filtered.map((item) => {
+            // Normalize related items
+            const rShop = item._id ? item : (item.shop || item.shop?.shop);
+            const rCity = item.city || item.shop?.city || {};
+            return { shop: rShop, city: rCity };
+        })
+      );
+  }, [shopId]);
+
+  // 4. UPDATE VIEW COUNT (Optimized)
   useEffect(() => {
       if (!ready || !shopId) return;
 
       const viewedKey = `VIEWED_SHOP_${shopId}`;
       const isViewed = sessionStorage.getItem(viewedKey);
 
+      // Determine endpoint and method:
+      // If already viewed in session -> GET only
+      // If new view -> POST (increment)
       const endpoint = isViewed
           ? `${API_BASE}/shop/views/${shopId}`
           : `${API_BASE}/shop/view/${shopId}`;
@@ -298,6 +248,7 @@ function ShopDetails() {
         .then(json => {
           if (json.status) {
             setViews(json.total_views);
+            // If it was a successful POST, mark as viewed in session
             if (!isViewed) {
                 sessionStorage.setItem(viewedKey, "1");
             }
@@ -311,7 +262,7 @@ function ShopDetails() {
   // SUBMIT REVIEW
   const submitReview = async () => {
     if (loggedInUserId === "") {
-      sessionStorage.setItem("REDIRECT_AFTER_LOGIN", JSON.stringify({ shop: restoredState.shop, city: restoredState.city }));
+      sessionStorage.setItem("REDIRECT_AFTER_LOGIN", JSON.stringify(rawData)); // Save normalized rawData
       alert("Please login to add review");
       return navigate("/login");
     }
@@ -415,45 +366,185 @@ function ShopDetails() {
       <style>
         {`
             body { background-color: #f0f2f5; font-family: 'Inter', sans-serif, 'Noto Sans Tamil', sans-serif; }
+
+            /* --- LAYOUT & CARDS --- */
             .detail-container { max-width: 1200px; margin: 0 auto; padding-bottom: 60px; }
-            .content-card { background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #eaeaea; overflow: hidden; margin-bottom: 24px; }
-            .sticky-info-card { position: sticky; top: 90px; background: white; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); border: 1px solid #eaeaea; padding: 24px; }
-            .back-btn { background: white; border: 1px solid #ddd; padding: 8px 16px; border-radius: 30px; font-weight: 600; color: #555; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+
+            .content-card {
+                background: white;
+                border-radius: 16px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+                border: 1px solid #eaeaea;
+                overflow: hidden;
+                margin-bottom: 24px;
+            }
+
+            .sticky-info-card {
+                position: sticky;
+                top: 90px;
+                background: white;
+                border-radius: 16px;
+                box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+                border: 1px solid #eaeaea;
+                padding: 24px;
+            }
+
+            /* --- HEADER & BACK BTN --- */
+            .back-btn {
+                background: white;
+                border: 1px solid #ddd;
+                padding: 8px 16px;
+                border-radius: 30px;
+                font-weight: 600;
+                color: #555;
+                transition: all 0.2s;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 20px;
+            }
             .back-btn:hover { background: #f8f9fa; transform: translateX(-3px); color: #000; }
-            .main-view-box { width: 100%; aspect-ratio: 16/9; background: #000; position: relative; display: flex; align-items: center; justify-content: center; }
-            .nav-arrow { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); backdrop-filter: blur(5px); color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; z-index: 10; font-size: 20px; }
+
+            /* --- MEDIA GALLERY --- */
+            .main-view-box {
+                width: 100%;
+                aspect-ratio: 16/9;
+                background: #000;
+                position: relative;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .nav-arrow {
+                position: absolute;
+                top: 50%;
+                transform: translateY(-50%);
+                background: rgba(255,255,255,0.2);
+                backdrop-filter: blur(5px);
+                color: white;
+                width: 40px; height: 40px;
+                border-radius: 50%;
+                display: flex; align-items: center; justify-content: center;
+                cursor: pointer;
+                transition: all 0.2s;
+                z-index: 10;
+                font-size: 20px;
+            }
             .nav-arrow:hover { background: white; color: black; }
             .nav-arrow.left { left: 15px; }
             .nav-arrow.right { right: 15px; }
-            .thumb-strip { display: flex; gap: 10px; padding: 15px; overflow-x: auto; background: #fdfdfd; border-top: 1px solid #eee; }
-            .thumb-item { width: 80px; height: 60px; border-radius: 8px; cursor: pointer; overflow: hidden; flex-shrink: 0; border: 2px solid transparent; transition: all 0.2s; position: relative; }
+
+            .thumb-strip {
+                display: flex;
+                gap: 10px;
+                padding: 15px;
+                overflow-x: auto;
+                background: #fdfdfd;
+                border-top: 1px solid #eee;
+            }
+            .thumb-item {
+                width: 80px; height: 60px;
+                border-radius: 8px;
+                cursor: pointer;
+                overflow: hidden;
+                flex-shrink: 0;
+                border: 2px solid transparent;
+                transition: all 0.2s;
+                position: relative;
+            }
             .thumb-item.active { border-color: #007bff; transform: scale(1.05); }
             .thumb-item img, .thumb-item video { width: 100%; height: 100%; object-fit: cover; }
+
+            /* --- TYPOGRAPHY --- */
             .shop-title { font-size: 2rem; font-weight: 800; color: #1a1a1a; margin-bottom: 5px; line-height: 1.2; }
-            .rating-badge { background: #fff4e5; color: #b76e00; padding: 4px 10px; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; font-size: 14px; margin-bottom: 15px; }
+            .rating-badge {
+                background: #fff4e5; color: #b76e00;
+                padding: 4px 10px; border-radius: 6px;
+                font-weight: 700; display: inline-flex; align-items: center; gap: 5px;
+                font-size: 14px; margin-bottom: 15px;
+            }
             .section-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 15px; color: #333; }
-            .offer-btn { background: linear-gradient(135deg, #FFD700 0%, #FDB931 100%); border: none; width: 100%; padding: 14px; border-radius: 12px; font-weight: 700; color: #333; font-size: 16px; box-shadow: 0 4px 15px rgba(253, 185, 49, 0.4); transition: transform 0.2s; }
+
+            /* --- ACTION BUTTONS --- */
+            .offer-btn {
+                background: linear-gradient(135deg, #FFD700 0%, #FDB931 100%);
+                border: none;
+                width: 100%;
+                padding: 14px;
+                border-radius: 12px;
+                font-weight: 700;
+                color: #333;
+                font-size: 16px;
+                box-shadow: 0 4px 15px rgba(253, 185, 49, 0.4);
+                transition: transform 0.2s;
+            }
             .offer-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(253, 185, 49, 0.5); }
-            .contact-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; font-size: 15px; color: #555; }
-            .contact-icon { display: flex; align-items: center; justify-content: center; color: #007bff; width: 24px; height: 24px; flex-shrink: 0; margin-top: 0px; }
-            .contact-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+            /* --- FIXED CONTACT ICONS --- */
+            .contact-row {
+                display: flex;
+                align-items: flex-start; /* Aligns to top for multi-line address */
+                gap: 12px;
+                margin-bottom: 18px;
+                font-size: 15px;
+                color: #555;
+            }
+            .contact-icon {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #007bff;
+                width: 24px;
+                height: 24px;
+                flex-shrink: 0; /* Prevents squishing */
+                margin-top: 0px;
+            }
+            /* SVG Styling */
+            .contact-icon svg {
+                width: 20px;
+                height: 20px;
+                fill: none;
+                stroke: currentColor;
+                stroke-width: 2;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+            }
+
+            /* --- REVIEWS --- */
             .star-input { font-size: 32px; cursor: pointer; transition: transform 0.1s; color: #ddd; }
             .star-input.active { color: #ffc107; }
             .star-input:hover { transform: scale(1.2); }
-            .review-item { border-bottom: 1px solid #eee; padding: 20px 0; }
+
+            .review-item {
+                border-bottom: 1px solid #eee;
+                padding: 20px 0;
+            }
             .review-item:last-child { border-bottom: none; }
-            .user-avatar { width: 40px; height: 40px; background: #e9ecef; color: #555; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; }
+            .user-avatar {
+                width: 40px; height: 40px;
+                background: #e9ecef; color: #555;
+                border-radius: 50%;
+                display: flex; align-items: center; justify-content: center;
+                font-weight: bold;
+                font-size: 18px;
+            }
             .delete-link { color: #dc3545; font-size: 12px; cursor: pointer; text-decoration: underline; margin-left: 10px; }
-            .related-card { display: flex; gap: 15px; padding: 12px; border-radius: 12px; transition: background 0.2s; cursor: pointer; border: 1px solid transparent; }
+
+            /* --- RELATED SHOPS --- */
+            .related-card {
+                display: flex; gap: 15px;
+                padding: 12px;
+                border-radius: 12px;
+                transition: background 0.2s;
+                cursor: pointer;
+                border: 1px solid transparent;
+            }
             .related-card:hover { background: white; border-color: #eee; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
             .related-img { width: 90px; height: 90px; border-radius: 8px; object-fit: cover; background: #eee; }
-            @media (max-width: 991px) { .sticky-info-card { position: static; margin-top: 20px; } .shop-title { font-size: 1.5rem; } }
-            
-            /* DEBUG BOX STYLE */
-            .debug-box {
-                background: #111; color: #0f0; padding: 20px; margin-top: 40px;
-                border-radius: 10px; font-family: monospace; font-size: 12px;
-                max-height: 400px; overflow: auto; border: 2px solid #0f0;
+
+            @media (max-width: 991px) {
+                .sticky-info-card { position: static; margin-top: 20px; }
+                .shop-title { font-size: 1.5rem; }
             }
         `}
       </style>
@@ -476,6 +567,7 @@ function ShopDetails() {
                         <>
                             <div className="main-view-box">
                                 {mediaList.length > 1 && <div className="nav-arrow left" onClick={prevMedia}>❮</div>}
+
                                 {mainMedia.type === "video" ? (
                                     <video
                                         src={mainMedia.url}
@@ -489,8 +581,10 @@ function ShopDetails() {
                                         style={{width: '100%', height: '100%', objectFit: 'cover'}}
                                     />
                                 )}
+
                                 {mediaList.length > 1 && <div className="nav-arrow right" onClick={nextMedia}>❯</div>}
                             </div>
+
                             {/* Thumbnails */}
                             {mediaList.length > 1 && (
                                 <div className="thumb-strip">
@@ -521,26 +615,40 @@ function ShopDetails() {
                 {/* 2. REVIEWS SECTION */}
                 <div className="content-card p-4">
                     <h3 className="section-title">{t("reviews")} <span className="text-muted" style={{fontWeight:400, fontSize:'0.9em'}}>({reviews.length})</span></h3>
+
+                    {/* Add Review Box */}
                     {loggedInUserId ? (
                         <div className="bg-light p-3 rounded mb-4 border">
                             <h6 className="mb-2 fw-bold text-primary">{t("addReview")}</h6>
                             <div className="mb-3">
                                 {[1, 2, 3, 4, 5].map((num) => (
-                                    <span key={num} className={`star-input ${num <= rating ? 'active' : ''}`} onClick={() => setRating(num)}>★</span>
+                                    <span
+                                        key={num}
+                                        className={`star-input ${num <= rating ? 'active' : ''}`}
+                                        onClick={() => setRating(num)}
+                                    >★</span>
                                 ))}
                             </div>
-                            <textarea className="form-control mb-3" rows="3" placeholder={t("reviewPlaceholder")} value={reviewText} onChange={(e) => setReviewText(e.target.value)}></textarea>
+                            <textarea
+                                className="form-control mb-3"
+                                rows="3"
+                                placeholder={t("reviewPlaceholder")}
+                                value={reviewText}
+                                onChange={(e) => setReviewText(e.target.value)}
+                            ></textarea>
                             <button className="btn btn-primary px-4 fw-bold" onClick={submitReview}>{t("submitReview")}</button>
                         </div>
                     ) : (
                         <div className="alert alert-info d-flex justify-content-between align-items-center">
                             <span>{t("loginReviewHint")}</span>
                             <button className="btn btn-sm btn-light fw-bold" onClick={() => {
-                                sessionStorage.setItem("REDIRECT_AFTER_LOGIN", JSON.stringify({ shop: restoredState.shop, city: restoredState.city }));
+                                sessionStorage.setItem("REDIRECT_AFTER_LOGIN", JSON.stringify(rawData));
                                 navigate("/login");
                             }}>{t("loginToReview")}</button>
                         </div>
                     )}
+
+                    {/* Review List */}
                     {reviews.length === 0 ? (
                         <div className="text-center text-muted py-4">{t("noReviews")}</div>
                     ) : (
@@ -567,8 +675,11 @@ function ShopDetails() {
                             ))}
                         </div>
                     )}
+
                     {reviews.length > visibleReviewCount && (
-                        <button className="btn btn-outline-secondary w-100 mt-3 fw-bold" onClick={loadAllReviews}>View all {reviews.length} reviews</button>
+                        <button className="btn btn-outline-secondary w-100 mt-3 fw-bold" onClick={loadAllReviews}>
+                            View all {reviews.length} reviews
+                        </button>
                     )}
                 </div>
 
@@ -585,12 +696,13 @@ function ShopDetails() {
                         {reviews.length > 0 && <span style={{color:'#666', fontWeight:400, marginLeft:5}}>({reviews.length} reviews)</span>}
                     </div>
 
-                    {/* View Count */}
+                    {/* === VIEW COUNT DISPLAY === */}
                     <div className="mb-3 text-secondary" style={{ fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span>👁</span>
                         <strong>{views}</strong>
                         <span>{t("viewsText")}</span>
                     </div>
+                    {/* ========================== */}
 
                     {/* Location */}
                     <p className="text-muted mb-4">
@@ -599,42 +711,57 @@ function ShopDetails() {
 
                     <hr className="my-4" />
 
-                    {/* Contact Details */}
+                    {/* Contact Details with INLINE SVGs */}
                     <h5 className="section-title mb-3">{t("contactInfo")}</h5>
 
                     <div className="contact-row">
                         <div className="contact-icon">
-                            <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                            {/* Phone Icon SVG */}
+                            <svg viewBox="0 0 24 24">
+                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                            </svg>
                         </div>
                         <div>
                             <strong>Phone</strong><br/>
-                            <a href={`tel:${getField("phone_number")}`} className="text-decoration-none">{getField("phone_number") || "N/A"}</a>
+                            <a href={`tel:${getField("phone_number")}`} className="text-decoration-none">{getField("phone_number")}</a>
                         </div>
                     </div>
 
                     <div className="contact-row">
                         <div className="contact-icon">
-                            <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                            {/* Email Icon SVG */}
+                            <svg viewBox="0 0 24 24">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                <polyline points="22,6 12,13 2,6"></polyline>
+                            </svg>
                         </div>
                         <div>
                             <strong>Email</strong><br/>
-                            {getField("email") || "N/A"}
+                            {getField("email")}
                         </div>
                     </div>
 
                     <div className="contact-row">
                         <div className="contact-icon">
-                            <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                            {/* Map Pin Icon SVG */}
+                            <svg viewBox="0 0 24 24">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
                         </div>
                         <div>
                             <strong>Address</strong><br/>
-                            {getField("address") || "N/A"}<br/>
+                            {getField("address")}<br/>
                             <span className="text-muted small">Landmark: {getField("landmark")}</span>
                         </div>
                     </div>
 
                     {/* Offers Button */}
-                    <button className="offer-btn mt-4" onClick={() => navigate(`/offers/shop/${shopId}/`, { state: { shop: restoredState.shop, city: restoredState.city } })}>
+                    <button className="offer-btn mt-4" onClick={() => {
+                        navigate(`/offers/shop/${shopId}/`, {
+                            state: rawData,
+                        });
+                    }}>
                        🎉 {t("offers")}
                     </button>
 
@@ -651,17 +778,6 @@ function ShopDetails() {
                     </div>
 
                 </div>
-            </div>
-        </div>
-
-        {/* ⭐ DIAGNOSTIC BOX (REMOVE AFTER FIXING) */}
-        <div className="container">
-            <div className="debug-box">
-                <h6>🛠 DIAGNOSTIC INFO (Copy this if N/A persists)</h6>
-                <p><strong>Shop ID Being Fetched:</strong> {shopId}</p>
-                <p><strong>Fetch URL:</strong> {debugLog.url || 'N/A'}</p>
-                <p><strong>Server Response:</strong></p>
-                <pre>{JSON.stringify(debugLog, null, 2)}</pre>
             </div>
         </div>
 
@@ -696,10 +812,17 @@ const RelatedCard = ({ data, navigate }) => {
     <div
         className="related-card"
         onClick={() => {
+            // Normalize structure for storage
             const shopObj = data.shop || data.shop?.shop || data;
             const cityObj = data.city || data.shop?.city || {};
-            sessionStorage.setItem("SELECTED_SHOP", JSON.stringify({ shop: shopObj, city: cityObj }));
-            navigate("/shop", { state: { shop: shopObj, city: cityObj } });
+            
+            const storageData = { shop: shopObj, city: cityObj };
+
+            // 1. Set Selected Shop
+            sessionStorage.setItem("SELECTED_SHOP", JSON.stringify(storageData));
+            // 2. Navigate (replace: false allows user to go back)
+            // The key={shopId} in main component handles the refresh
+            navigate("/shop", { state: storageData });
         }}
     >
         {photo ? (
