@@ -1,0 +1,56 @@
+services:
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../nginx/conf:/etc/nginx/conf.d
+      - ../nginx/certbot/conf:/etc/letsencrypt
+      - ../nginx/certbot/www:/var/www/certbot
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ../nginx/certbot/conf:/etc/letsencrypt
+      - ../nginx/certbot/www:/var/www/certbot
+    command: certonly --webroot -w /var/www/certbot -d nallaangadi.com -d www.nallaangadi.com -d api.nallaangadi.com --email ugkarthikgk@mail.com --agree-tos --no-eff-email
+
+  backend:
+    container_name: fastapi-app
+    build:
+      context: ..
+      dockerfile: docker/backend_Dockerfile
+
+
+    expose:
+      - "8000"
+
+    env_file:
+      - ../backend/api/.env
+
+    volumes:
+      - ../backend/api/media:/app/media
+
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+
+  frontend:
+    container_name: react-app
+    build:
+      context: ..
+      dockerfile: docker/frontend_Dockerfile
+
+    expose:
+      - "80"
+
+    env_file:
+      - ../frontend/src/.env
+
+    #command: npm run dev -- --host
