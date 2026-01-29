@@ -247,7 +247,7 @@ def upload_profile_image(
             pass
 
     ext = file.filename.split(".")[-1].lower()
-    filename = f"{user_id}.{ext}"
+    filename = f"{uuid.uuid4()}.{ext}"
     path = os.path.join(UPLOAD_DIR, filename)
 
     with open(path, "wb") as f:
@@ -767,10 +767,13 @@ async def update_offer_api(
             return {"status": False, "message": "Invalid file type"}
 
         ext = file.filename.split(".")[-1]
-        filename = f"{offer_id}.{ext}"
+        filename = f"{uuid.uuid4()}.{ext}"
+
         save_dir = os.path.join(MEDIA_BASE, shop_id, "offers", folder)
         os.makedirs(save_dir, exist_ok=True)
-        with open(os.path.join(save_dir, filename), "wb") as f:
+
+        full_path = os.path.join(save_dir, filename)
+        with open(full_path, "wb") as f:
             f.write(await file.read())
 
         target.update({

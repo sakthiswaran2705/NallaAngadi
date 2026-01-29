@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-// 👇 FIXED: Changed Toaster to OverlayToaster for Blueprint v5+
 import { Button, Spinner, Icon, NonIdealState, OverlayToaster, Position } from "@blueprintjs/core";
 import { motion, AnimatePresence } from "framer-motion";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -161,7 +160,7 @@ const styles = `
   .card-info { padding: 15px 5px; flex-grow: 1; display: flex; flex-direction: column; }
   .card-title { font-size: 17px; font-weight: 700; color: var(--text-main); margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .card-sub { font-size: 14px; color: var(--text-sub); display: flex; align-items: center; gap: 5px; margin-bottom: 15px; }
-  
+   
   .card-actions-row { display: flex; gap: 10px; margin-top: auto; }
   .action-chip { flex: 1; border: 1px solid #e2e8f0; background: white; color: var(--text-sub); padding: 8px; border-radius: 8px; font-size: 12px; font-weight: 600; text-align: center; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 5px; }
   .action-chip:hover { border-color: var(--primary); color: var(--primary); background: #eff6ff; }
@@ -177,16 +176,21 @@ const styles = `
 
 // Simple Debounce
 const useDebounce = (callback, delay) => {
-    const timer = useRef(null);
-    return useCallback((...args) => {
-        if (timer.current) clearTimeout(timer.current);
-        timer.current = setTimeout(() => callback(...args), delay);
-    }, [callback, delay]);
+  const timer = useRef(null);
+  return useCallback((...args) => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => callback(...args), delay);
+  }, [callback, delay]);
 };
 
-// 👇 FIXED: Changed Toaster to OverlayToaster
-const AppToaster = await OverlayToaster.create({ position: Position.TOP });
+// INITIALIZE TOASTER SAFER WAY
+let toasterInstance = null;
+OverlayToaster.create({ position: Position.TOP }).then((instance) => {
+    toasterInstance = instance;
+});
+
 const API_BASE = import.meta.env.VITE_BACKEND_URL;
+
 export default function SearchResults() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -218,13 +222,13 @@ export default function SearchResults() {
   // --- 1. FETCH MASTER CATEGORY LIST ---
   useEffect(() => {
     const fetchCats = async () => {
-        try {
-            const res = await fetch(`${API_BASE}/category/list/?lang=${lang}`);
-            const json = await res.json();
-            setAllCategories(json.data || []);
-        } catch (e) {
-            console.error("Failed to load categories", e);
-        }
+      try {
+        const res = await fetch(`${API_BASE}/category/list/?lang=${lang}`);
+        const json = await res.json();
+        setAllCategories(json.data || []);
+      } catch (e) {
+        console.error("Failed to load categories", e);
+      }
     };
     fetchCats();
   }, [lang]);
@@ -236,9 +240,9 @@ export default function SearchResults() {
 
     let combinedList = [];
     if (allCategories.length > 0) {
-        allCategories.forEach(cat => {
-            if (cat.name.toLowerCase().includes(lower)) combinedList.push(cat.name);
-        });
+      allCategories.forEach(cat => {
+        if (cat.name.toLowerCase().includes(lower)) combinedList.push(cat.name);
+      });
     }
 
     try {
@@ -246,8 +250,8 @@ export default function SearchResults() {
       const json = await res.json();
       const apiData = json.data || [];
       apiData.forEach((item) => {
-          const shopName = item.shop?.shop_name || item.shop_name;
-          if (shopName && !combinedList.includes(shopName)) combinedList.push(shopName);
+        const shopName = item.shop?.shop_name || item.shop_name;
+        if (shopName && !combinedList.includes(shopName)) combinedList.push(shopName);
       });
     } catch (e) { console.error(e); }
 
@@ -270,19 +274,32 @@ export default function SearchResults() {
   // --- 3. RESULTS FETCHING ---
   const fetchResults = async (pageNum, isInitial = false) => {
     if (isInitial) setLoading(true); else setLoadingMore(true);
+
+    // IMPORTANT: Always use initialCat/initialCity for pagination,
+    // NOT the current input state which user might be typing in.
+    const searchCat = isInitial ? initialCat : initialCat;
+    const searchCity = isInitial ? initialCity : initialCity;
+
     try {
       const res = await fetch(
-        `${API_BASE}/shop/search/?name=${encodeURIComponent(isInitial ? initialCat : catInput)}&place=${encodeURIComponent(isInitial ? initialCity : cityInput)}&lang=${lang}&page=${pageNum}`
+        `${API_BASE}/shop/search/?name=${encodeURIComponent(searchCat)}&place=${encodeURIComponent(searchCity)}&lang=${lang}&page=${pageNum}`
       );
       const json = await res.json();
       const newData = json.data || [];
-      if (isInitial) setResults(newData);
-      else setResults(prev => [...prev, ...newData]);
+
+      if (isInitial) {
+          setResults(newData);
+      } else {
+          // APPEND Data safely
+          setResults(prev => [...prev, ...newData]);
+      }
+
       setHasMore(json.has_more || false);
     } catch (error) { console.error(error); }
     finally { if (isInitial) setLoading(false); else setLoadingMore(false); }
   };
 
+  // Initial Load (When URL changes)
   useEffect(() => {
     setCatInput(initialCat);
     setCityInput(initialCity);
@@ -291,8 +308,13 @@ export default function SearchResults() {
     // eslint-disable-next-line
   }, [initialCat, initialCity, lang]);
 
-  useEffect(() => { if (page > 1) fetchResults(page, false); }, [page]);
+  // Pagination Load (When Page changes)
+  useEffect(() => {
+      if (page > 1) fetchResults(page, false);
+      // eslint-disable-next-line
+  }, [page]);
 
+  // Infinite Scroll Listener
   useEffect(() => {
     const handleScroll = () => {
       if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 100) {
@@ -310,7 +332,7 @@ export default function SearchResults() {
     if (c && ct) {
       navigate(`/results?category=${encodeURIComponent(c)}&city=${encodeURIComponent(ct)}`);
     } else {
-        AppToaster.show({ message: "Please enter both category and city!", intent: "warning" });
+       if(toasterInstance) toasterInstance.show({ message: "Please enter both category and city!", intent: "warning" });
     }
   };
 
@@ -320,8 +342,8 @@ export default function SearchResults() {
     e.preventDefault();
 
     if (!value) {
-        AppToaster.show({ message: "Contact info not available.", intent: "danger", icon: "error" });
-        return;
+       if(toasterInstance) toasterInstance.show({ message: "Contact info not available.", intent: "danger", icon: "error" });
+       return;
     }
 
     try {
@@ -334,7 +356,6 @@ export default function SearchResults() {
             window.open(`https://wa.me/${finalNum}`, '_blank');
         }
         else if (type === 'map') {
-            // FIXED URL
             window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value)}`, '_blank');
         }
     } catch(err) {
@@ -445,25 +466,29 @@ export default function SearchResults() {
                 />
                 ) : (
                 <div className="results-grid">
-                    <AnimatePresence>
+                    {/* REMOVED AnimatePresence here to stop page jumping */}
                     {results.map((item, idx) => {
                         const s = item.shop || item.shop?.shop || item;
+
+                        // Use Unique ID or Fallback Key
+                        const uniqueKey = s.id || s.shop_id || `${s.shop_name}-${idx}`;
+
                         const img = s.main_image
                         ? `http://127.0.0.1:8000/${s.main_image}`
                         : (s.media?.[0]?.path ? `http://127.0.0.1:8000/${s.media[0].path}` : "https://via.placeholder.com/400x300");
 
                         // --- DATA FOR ACTIONS ---
                         const contactNum = s.mobile || s.phone_number;
-                        // Prioritize Full Address -> City -> Search City
-                        const mapLocation = s.address ? `${s.shop_name}, ${s.address}` : (s.city ? `${s.shop_name}, ${s.city}` : cityInput);
+                        const mapLocation = s.address ? `${s.shop_name}, ${s.address}` : (s.city ? `${s.shop_name}, ${s.city}` : initialCity);
 
                         return (
                         <motion.div
-                            key={idx}
+                            key={uniqueKey}
                             className="clean-card"
                             initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: idx * 0.05 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ duration: 0.4 }}
                             onClick={() => navigate("/shop", { state: { shop: s } })}
                         >
                             <div className="card-image-box">
@@ -477,7 +502,7 @@ export default function SearchResults() {
                             <div className="card-title">{s.shop_name}</div>
                             <div className="card-sub">
                                 <Icon icon="map-marker" color="#94a3b8" size={12} />
-                                {s.address || cityInput}
+                                {s.address || initialCity}
                             </div>
 
                             {/* ACTION BUTTONS */}
@@ -497,7 +522,6 @@ export default function SearchResults() {
                         </motion.div>
                         );
                     })}
-                    </AnimatePresence>
                 </div>
                 )}
             </>

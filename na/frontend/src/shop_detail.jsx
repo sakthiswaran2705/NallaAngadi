@@ -1,33 +1,41 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import { Icon } from "@blueprintjs/core";
 import Navbar from "./Navbar.jsx";
 
 const API_BASE = import.meta.env.VITE_BACKEND_URL;
 
+// ==========================================================
+// 1. TRANSLATION TEXT
+// ==========================================================
 const TXT = {
-  backToResults: { en: "Back to Results", ta: "முடிவுகளுக்கு திரும்ப" },
+  back: { en: "Back", ta: "பின் செல்ல" },
   noShopData: { en: "No Shop Data Found", ta: "கடை விவரங்கள் கிடைக்கவில்லை" },
-  about: { en: "About", ta: "எங்களை பற்றி" },
-  contactInfo: { en: "Contact Information", ta: "தொடர்பு விவரங்கள்" },
-  locationDetails: { en: "Location Details", ta: "இட விவரங்கள்" },
-  landmark: { en: "Landmark", ta: "அடையாளம்" },
-  address: { en: "Address", ta: "முகவரி" },
   reviews: { en: "Customer Reviews", ta: "வாடிக்கையாளர் மதிப்புரைகள்" },
   addReview: { en: "Add Your Review", ta: "உங்கள் மதிப்பீட்டை சேர்க்கவும்" },
   submitReview: { en: "Submit Review", ta: "மதிப்பீட்டை சமர்ப்பிக்க" },
   loginToReview: { en: "Login to Review", ta: "மதிப்பீடு செய்ய உள்நுழையவும்" },
   noReviews: { en: "Be the first one to leave a review!", ta: "முதல் மதிப்பீட்டை சேருங்கள்!" },
-  moreShops: { en: "More Shops Like This", ta: "இதுபோன்ற மேலும் கடைகள்" },
+  moreShops: { en: "Top Rated Nearby", ta: "அருகிலுள்ள சிறந்த கடைகள்" },
   offers: { en: "View Exclusive Offers", ta: "சிறப்பு சலுகைகளை பார்க்க" },
-  reviewPlaceholder: { en: "Share your experience about this place...", ta: "உங்கள் அனுபவத்தை இங்கே பகிரவும்..." },
-  loginReviewHint: { en: "Please login to share your experience and add a review.", ta: "உங்கள் அனுபவத்தை பகிர்ந்து மதிப்பீடு செய்ய உள்நுழையவும்." },
-  viewsText: { en: "views this month", ta: "பார்வைகள் (இந்த மாதம்)" }
+  reviewPlaceholder: { en: "Share your experience...", ta: "உங்கள் அனுபவத்தை பகிரவும்..." },
+  contactInfo: { en: "Contact Information", ta: "தொடர்பு விவரங்கள்" },
+  viewsText: { en: "views this month", ta: "பார்வைகள் (இந்த மாதம்)" },
+  deleteTitle: { en: "Delete Review?", ta: "மதிப்பீட்டை நீக்கவா?" },
+  deleteMsg: { en: "Are you sure you want to delete this review? This action cannot be undone.", ta: "நிச்சயமாக இந்த மதிப்பீட்டை நீக்க விரும்புகிறீர்களா?" },
+  cancel: { en: "Cancel", ta: "ரத்து" },
+  delete: { en: "Delete", ta: "நீக்கு" },
+  loginReq: { en: "Login Required", ta: "உள்நுழைவு தேவை" },
+  loginMsg: { en: "Please login to perform this action.", ta: "தயவுசெய்து உள்நுழையவும்." }
 };
 
+// ==========================================================
+// 2. HELPER: REFRESH TOKEN
+// ==========================================================
 async function refreshAccessToken() {
   const refresh = localStorage.getItem("REFRESH_TOKEN");
   if (!refresh) return null;
-
   try {
     const res = await fetch(`${API_BASE}/refresh/`, {
       method: "POST",
@@ -39,11 +47,24 @@ async function refreshAccessToken() {
       localStorage.setItem("ACCESS_TOKEN", json.access_token);
       return json.access_token;
     }
-  } catch (e) {
-    console.log("Refresh failed:", e);
-  }
+  } catch (e) { console.log("Refresh failed:", e); }
   return null;
 }
+
+// ==========================================================
+// 3. ANIMATION VARIANTS
+// ==========================================================
+const popupVariants = {
+    initial: { opacity: 0, y: -50, scale: 0.9 },
+    animate: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 300, damping: 20 } },
+    exit: { opacity: 0, y: -20, scale: 0.9, transition: { duration: 0.2 } }
+};
+
+const modalVariants = {
+    hidden: { opacity: 0, scale: 0.8 },
+    visible: { opacity: 1, scale: 1, transition: { type: "spring", stiffness: 300, damping: 25 } },
+    exit: { opacity: 0, scale: 0.8 }
+};
 
 // ==========================================================
 // ⭐ MAIN SHOP DETAILS COMPONENT
@@ -54,88 +75,88 @@ function ShopDetails() {
   const lang = localStorage.getItem("LANG") || "en";
   const t = (key) => TXT[key]?.[lang] || TXT[key]?.en || key;
 
-  // State for readiness
   const [ready, setReady] = useState(false);
-
-  // USER INFO
   const loggedInUserId = localStorage.getItem("USER_ID") || "";
 
   // --------------------------------------------------------
-  // ⭐ FIX: ROBUST DATA EXTRACTION LOGIC
+  // A. RESTORE STATE LOGIC
   // --------------------------------------------------------
-  
-  // 1. Get Raw Data from Location or Storage
-  let rawData = state;
-  if (!rawData) {
+  let restoredState = state;
+  if (!restoredState) {
     const savedLogin = sessionStorage.getItem("REDIRECT_AFTER_LOGIN");
     if (savedLogin) {
-      rawData = JSON.parse(savedLogin);
+      restoredState = JSON.parse(savedLogin);
       sessionStorage.removeItem("REDIRECT_AFTER_LOGIN");
+    } else {
+      const saved = sessionStorage.getItem("SELECTED_SHOP");
+      if (saved) restoredState = JSON.parse(saved);
     }
   }
-  if (!rawData) {
-    const saved = sessionStorage.getItem("SELECTED_SHOP");
-    if (saved) rawData = JSON.parse(saved);
-  }
-
-  // 2. Helper to find the actual Shop Object deeply
-  const extractShop = (data) => {
-    if (!data) return null;
-    // Case A: The data itself is the shop (Direct object from High Rated/Search)
-    if (data._id && data.shop_name) return data; 
-    // Case B: Standard structure { shop: { ... } }
-    if (data.shop && data.shop._id) return data.shop;
-    // Case C: Nested structure { shop: { shop: { ... } } }
-    if (data.shop?.shop?._id) return data.shop.shop;
-    return null;
-  };
-
-  // 3. Extract Shop and City
-  const shopDoc = extractShop(rawData);
-  // Try to find city in rawData.city OR inside the shopDoc itself
-  const cityDoc = rawData?.city || shopDoc?.city || {};
-  
-  const shopId = shopDoc?._id;
-  const getField = (key) => shopDoc?.[key] ?? "";
-
-  // --------------------------------------------------------
-
-  // MEDIA STATE
-  const [mediaList, setMediaList] = useState([]);
-  const [mainMedia, setMainMedia] = useState(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  // REVIEWS STATE
-  const [reviews, setReviews] = useState([]);
-  const [avgRating, setAvgRating] = useState(null);
-  const [visibleReviewCount, setVisibleReviewCount] = useState(3);
-  const [rating, setRating] = useState(0);
-  const [reviewText, setReviewText] = useState("");
-
-  // RELATED SHOPS STATE
-  const [relatedShops, setRelatedShops] = useState([]);
-
-  // VIEW COUNT STATE
-  const [views, setViews] = useState(0);
 
   // NO DATA HANDLER
-  if (!shopId) {
+  if (!restoredState?.shop) {
     return (
       <>
         <Navbar />
         <div className="container mt-5 text-center">
             <div className="alert alert-warning d-inline-block p-4">
                 <h4>{t("noShopData")}</h4>
-                <button className="btn btn-dark mt-3" onClick={() => navigate("/")}>
-                    {t("backToResults")}
-                </button>
+                <button className="btn btn-dark mt-3" onClick={() => navigate("/")}>Home</button>
             </div>
         </div>
       </>
     );
   }
 
-  // HELPER: Recalculate Rating
+  // Normalize Data
+  const normalizeShop = (data) => {
+      if (!data) return {};
+      // Handle both _id and shop_id variations
+      const id = data._id || data.shop_id;
+      return { ...data, _id: id, shop_id: id };
+  };
+
+  const initialShopDoc = normalizeShop(restoredState.shop);
+  const cityDoc = restoredState.city || (initialShopDoc.city && typeof initialShopDoc.city === 'object' ? initialShopDoc.city : { city_name: initialShopDoc.city || "" });
+  const shopId = initialShopDoc.shop_id;
+
+  // --------------------------------------------------------
+  // B. LOCAL STATE
+  // --------------------------------------------------------
+  // Store full details here, initialized with what we have
+  const [shopDetails, setShopDetails] = useState(initialShopDoc);
+
+  const [mediaList, setMediaList] = useState([]);
+  const [mainMedia, setMainMedia] = useState(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const [reviews, setReviews] = useState([]);
+  const [avgRating, setAvgRating] = useState(null);
+  const [visibleReviewCount, setVisibleReviewCount] = useState(3);
+  const [rating, setRating] = useState(0);
+  const [reviewText, setReviewText] = useState("");
+
+  const [topRatedShops, setTopRatedShops] = useState([]);
+  const [loadingTopRated, setLoadingTopRated] = useState(true);
+  const [views, setViews] = useState(0);
+
+  // POPUP & MODAL STATE
+  const [popup, setPopup] = useState(null);
+  const [deleteId, setDeleteId] = useState(null);
+
+  // Helper to safely get fields from state
+  const getField = (key) => {
+      return shopDetails[key] || initialShopDoc[key] || "N/A";
+  };
+
+  // --------------------------------------------------------
+  // C. HELPERS
+  // --------------------------------------------------------
+  const showPopup = (type, message, title = "") => {
+      setPopup({ type, message, title });
+      setTimeout(() => setPopup(null), 3000);
+  };
+
   const recalculateAvgRating = (currentReviews) => {
     if (currentReviews?.length > 0) {
       const sum = currentReviews.reduce((a, b) => a + b.rating, 0);
@@ -145,129 +166,143 @@ function ShopDetails() {
     }
   };
 
-  const loadAllReviews = () => {
-      setVisibleReviewCount(reviews.length);
-  };
+  const loadAllReviews = () => setVisibleReviewCount(reviews.length);
 
-  // 0. SET READY STATE
+  // --------------------------------------------------------
+  // D. EFFECTS
+  // --------------------------------------------------------
+
+  // ⭐ 1. FETCH FULL DETAILS (Includes Landmark, Phone, etc.)
   useEffect(() => {
     if (shopId) {
         setReady(true);
-    }
-  }, [shopId]);
+        window.scrollTo(0, 0);
 
-  // 1. LOAD SHOP MEDIA
+        fetch(`${API_BASE}/shop/${shopId}?lang=${lang}`)
+            .then(res => res.json())
+            .then(json => {
+                if(json.status && json.data) {
+                    // Update local state with fresh data from backend
+                    setShopDetails(prev => ({ ...prev, ...json.data }));
+                }
+            })
+            .catch(err => console.error("Error fetching details:", err));
+    }
+  }, [shopId, lang]);
+
+  // ⭐ 2. Load Media
   useEffect(() => {
     if (!shopId) return;
-    window.scrollTo(0, 0); // Scroll to top when shopId changes
-
     fetch(`${API_BASE}/shop/${shopId}/media/`)
       .then((res) => res.json())
       .then((json) => {
         if (json.status && json.media) {
-          const formattedMedia = json.media.map((item) => ({
-            type: item.type,
-            url: `${API_BASE}/${item.path}`
-          }));
+          const formattedMedia = json.media.map((item) => ({ type: item.type, url: `${API_BASE}/${item.path}` }));
           setMediaList(formattedMedia);
           if (json.main_image) {
              const mainUrl = `${API_BASE}/${json.main_image}`;
              const found = formattedMedia.find(m => m.url === mainUrl);
              setMainMedia(found || { type: 'image', url: mainUrl });
-          } else {
-             setMainMedia(formattedMedia[0] || null);
-          }
+          } else setMainMedia(formattedMedia[0] || null);
         }
-      })
-      .catch(err => console.error("Media fetch error:", err));
+      }).catch(err => console.error(err));
   }, [shopId]);
 
-  // 2. LOAD REVIEWS
+  // ⭐ 3. Load Reviews
   useEffect(() => {
     if (!shopId) return;
-    setReviews([]); // Clear old reviews
     fetch(`${API_BASE}/shop/${shopId}/reviews/`)
       .then((res) => res.json())
       .then((json) => {
         if (json.status) {
           setReviews(json.reviews || []);
           recalculateAvgRating(json.reviews || []);
-          setVisibleReviewCount(3);
         }
       });
   }, [shopId]);
 
-  // 3. LOAD RELATED SHOPS
+  // ⭐ 4. LOAD TOP RATED
   useEffect(() => {
       if (!shopId) return;
 
-      // First, try to retrieve the search context
-      let all = JSON.parse(sessionStorage.getItem("SEARCH_CONTEXT_SHOPS"));
-      // Fallback: If no search context, look for Home Results
-      if (!all || all.length === 0) {
-          all = JSON.parse(sessionStorage.getItem("HOME_RESULTS")) || [];
+      setLoadingTopRated(true);
+
+      const homeResultsRaw = sessionStorage.getItem("HOME_RESULTS");
+
+      if (homeResultsRaw) {
+          try {
+              const homeResults = JSON.parse(homeResultsRaw);
+              const formatted = homeResults.map(item => ({
+                  shop_id: item.shop._id || item.shop.shop_id,
+                  shop_name: item.shop.shop_name,
+                  city: item.city.city_name,
+                  image: item.shop.image || item.shop.main_image,
+                  average_rating: item.shop.average_rating,
+                  review_count: item.shop.review_count,
+                  phone_number: item.shop.phone_number,
+                  address: item.shop.address,
+                  email: item.shop.email,
+                  landmark: item.shop.landmark,
+                  description: item.shop.description
+              }));
+
+              const filtered = formatted.filter(item => String(item.shop_id) !== String(shopId));
+              setTopRatedShops(filtered.slice(0, 5));
+              setLoadingTopRated(false);
+              return;
+          } catch (e) {
+              console.error("Error parsing HOME_RESULTS", e);
+          }
       }
 
-      if (all.length === 0) return;
+      const cityName = cityDoc?.city_name || "";
+      let queryParams = `lang=${lang}&limit=10`;
+      if (cityName) queryParams += `&city=${encodeURIComponent(cityName)}`;
 
-      // Filter out the current shop from the list
-      const filtered = all.filter((item) => {
-         // Handle different structures in related/search data
-         const s = item._id ? item : (item.shop || item.shop?.shop);
-         return s && s._id !== shopId;
-      });
+      fetch(`${API_BASE}/shops/top-rated?${queryParams}`)
+          .then(res => res.json())
+          .then(json => {
+              if (json.status && json.data) {
+                  const filtered = json.data.filter(item => String(item.shop_id) !== String(shopId));
+                  setTopRatedShops(filtered.slice(0, 5));
+              } else {
+                  setTopRatedShops([]);
+              }
+              setLoadingTopRated(false);
+          })
+          .catch(err => { console.error(err); setLoadingTopRated(false); });
 
-      setRelatedShops(
-        filtered.map((item) => {
-            // Normalize related items
-            const rShop = item._id ? item : (item.shop || item.shop?.shop);
-            const rCity = item.city || item.shop?.city || {};
-            return { shop: rShop, city: rCity };
-        })
-      );
-  }, [shopId]);
+  }, [shopId, lang, cityDoc?.city_name]);
 
-  // 4. UPDATE VIEW COUNT (Optimized)
+  // ⭐ 5. Update Views
   useEffect(() => {
       if (!ready || !shopId) return;
-
       const viewedKey = `VIEWED_SHOP_${shopId}`;
       const isViewed = sessionStorage.getItem(viewedKey);
-
-      // Determine endpoint and method:
-      // If already viewed in session -> GET only
-      // If new view -> POST (increment)
-      const endpoint = isViewed
-          ? `${API_BASE}/shop/views/${shopId}`
-          : `${API_BASE}/shop/view/${shopId}`;
-
+      const endpoint = isViewed ? `${API_BASE}/shop/views/${shopId}` : `${API_BASE}/shop/view/${shopId}`;
       const method = isViewed ? "GET" : "POST";
-
-      fetch(endpoint, { method: method })
-        .then(res => res.json())
-        .then(json => {
-          if (json.status) {
-            setViews(json.total_views);
-            // If it was a successful POST, mark as viewed in session
-            if (!isViewed) {
-                sessionStorage.setItem(viewedKey, "1");
-            }
-          }
-        })
-        .catch(err => console.error("View sync error:", err));
-
+      fetch(endpoint, { method: method }).then(res => res.json()).then(json => {
+          if (json.status) { setViews(json.total_views); if (!isViewed) sessionStorage.setItem(viewedKey, "1"); }
+      }).catch(err => console.error(err));
     }, [ready, shopId]);
 
 
-  // SUBMIT REVIEW
+  // --------------------------------------------------------
+  // E. ACTION HANDLERS
+  // --------------------------------------------------------
+
+  // ⭐⭐ UPDATED BACK ACTION: DIRECT HOME, NO REFRESH ⭐⭐
+  const handleBack = () => {
+    navigate(-1, { replace: true });
+  };
+
   const submitReview = async () => {
     if (loggedInUserId === "") {
-      sessionStorage.setItem("REDIRECT_AFTER_LOGIN", JSON.stringify(rawData)); // Save normalized rawData
-      alert("Please login to add review");
-      return navigate("/login");
+      sessionStorage.setItem("REDIRECT_AFTER_LOGIN", JSON.stringify({ shop: restoredState.shop, city: restoredState.city }));
+      return showPopup("error", t("loginMsg"), t("loginReq"));
     }
-    if (!rating) return alert("Select rating");
-    if (!reviewText.trim()) return alert("Enter review");
+    if (!rating) return showPopup("warning", "Please select a star rating", "Rating Required");
+    if (!reviewText.trim()) return showPopup("warning", "Please write a few words", "Review Empty");
 
     let token = localStorage.getItem("ACCESS_TOKEN");
     const formData = new FormData();
@@ -275,24 +310,17 @@ function ShopDetails() {
     formData.append("rating", rating);
     formData.append("review", reviewText);
 
-    let res = await fetch(`${API_BASE}/review/add/`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
+    const performFetch = async (currentToken) => {
+        return await fetch(`${API_BASE}/review/add/`, {
+             method: "POST", headers: { Authorization: `Bearer ${currentToken}` }, body: formData
+        });
+    };
 
+    let res = await performFetch(token);
     if (res.status === 401) {
-      const newToken = await refreshAccessToken();
-      if (!newToken) {
-        alert("Session expired! Please login again.");
-        return navigate("/login");
-      }
-      token = newToken;
-      res = await fetch(`${API_BASE}/review/add/`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+      token = await refreshAccessToken();
+      if (!token) return navigate("/login");
+      res = await performFetch(token);
     }
 
     const json = await res.json();
@@ -303,540 +331,390 @@ function ShopDetails() {
       setVisibleReviewCount(arr.length);
       setReviewText("");
       setRating(0);
+      showPopup("success", "Review posted successfully!", "Thank You");
     } else {
-      alert(json.message);
+      showPopup("error", json.message || "Failed to post review");
     }
   };
 
-  // DELETE REVIEW
-  const deleteReview = async (reviewId) => {
-    if (!window.confirm("Are you sure you want to delete this review?")) return;
+  const confirmDeleteReview = async () => {
+    if (!deleteId) return;
     let token = localStorage.getItem("ACCESS_TOKEN");
     const formData = new FormData();
-    formData.append("review_id", reviewId);
+    formData.append("review_id", deleteId);
 
-    let res = await fetch(`${API_BASE}/review/delete/`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
+    const performFetch = async (currentToken) => {
+        return await fetch(`${API_BASE}/review/delete/`, {
+             method: "DELETE", headers: { Authorization: `Bearer ${currentToken}` }, body: formData
+        });
+    };
 
+    let res = await performFetch(token);
     if (res.status === 401) {
-      const newToken = await refreshAccessToken();
-      if (!newToken) {
-        alert("Session expired! Please login again.");
-        return navigate("/login");
-      }
-      token = newToken;
-      res = await fetch(`${API_BASE}/review/delete/`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+      token = await refreshAccessToken();
+      if (!token) return navigate("/login");
+      res = await performFetch(token);
     }
 
     const json = await res.json();
     if (json.status) {
-      const updatedReviews = reviews.filter((r) => r._id !== reviewId);
+      const updatedReviews = reviews.filter((r) => r._id !== deleteId);
       setReviews(updatedReviews);
       recalculateAvgRating(updatedReviews);
-      alert("Review deleted successfully!");
+      showPopup("success", "Review deleted successfully.");
+      setDeleteId(null);
     } else {
-      alert(json.message || "Failed to delete review.");
+      showPopup("error", json.message || "Failed to delete.");
+      setDeleteId(null);
     }
   };
 
-  // MEDIA SLIDER CONTROLS
-  const nextMedia = () => {
-    if (mediaList.length <= 1) return;
-    const idx = (currentIndex + 1) % mediaList.length;
-    setMainMedia(mediaList[idx]);
-    setCurrentIndex(idx);
-  };
-  const prevMedia = () => {
-    if (mediaList.length <= 1) return;
-    const idx = (currentIndex - 1 + mediaList.length) % mediaList.length;
-    setMainMedia(mediaList[idx]);
-    setCurrentIndex(idx);
-  };
+  const nextMedia = () => { if (mediaList.length > 1) { const idx = (currentIndex + 1) % mediaList.length; setMainMedia(mediaList[idx]); setCurrentIndex(idx); }};
+  const prevMedia = () => { if (mediaList.length > 1) { const idx = (currentIndex - 1 + mediaList.length) % mediaList.length; setMainMedia(mediaList[idx]); setCurrentIndex(idx); }};
 
-  // UI RENDER
+  // --------------------------------------------------------
+  // F. RENDER UI
+  // --------------------------------------------------------
   return (
     <div key={shopId}>
       <style>
         {`
-            body { background-color: #f0f2f5; font-family: 'Inter', sans-serif, 'Noto Sans Tamil', sans-serif; }
-
-            /* --- LAYOUT & CARDS --- */
+            body { background-color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif, 'Noto Sans Tamil', sans-serif; }
             .detail-container { max-width: 1200px; margin: 0 auto; padding-bottom: 60px; }
-
             .content-card {
-                background: white;
-                border-radius: 16px;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-                border: 1px solid #eaeaea;
-                overflow: hidden;
-                margin-bottom: 24px;
+                background: white; border-radius: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+                border: 1px solid #e2e8f0; overflow: hidden; margin-bottom: 24px;
             }
-
             .sticky-info-card {
-                position: sticky;
-                top: 90px;
-                background: white;
-                border-radius: 16px;
-                box-shadow: 0 8px 30px rgba(0,0,0,0.08);
-                border: 1px solid #eaeaea;
-                padding: 24px;
+                position: sticky; top: 90px; background: white; border-radius: 20px;
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; padding: 24px;
             }
-
-            /* --- HEADER & BACK BTN --- */
             .back-btn {
-                background: white;
-                border: 1px solid #ddd;
-                padding: 8px 16px;
-                border-radius: 30px;
-                font-weight: 600;
-                color: #555;
-                transition: all 0.2s;
-                display: inline-flex;
-                align-items: center;
-                gap: 8px;
-                margin-bottom: 20px;
+                background: white; border: 1px solid #cbd5e1; padding: 10px 20px; border-radius: 50px;
+                font-weight: 700; color: #475569; transition: all 0.2s; display: inline-flex; align-items: center;
+                gap: 8px; margin-bottom: 24px; cursor: pointer;
             }
-            .back-btn:hover { background: #f8f9fa; transform: translateX(-3px); color: #000; }
-
-            /* --- MEDIA GALLERY --- */
+            .back-btn:hover { background: #f1f5f9; transform: translateX(-3px); color: #0f172a; border-color: #94a3b8; }
             .main-view-box {
-                width: 100%;
-                aspect-ratio: 16/9;
-                background: #000;
-                position: relative;
-                display: flex;
-                align-items: center;
-                justify-content: center;
+                width: 100%; aspect-ratio: 16/9; background: #000; position: relative;
+                display: flex; align-items: center; justify-content: center;
             }
             .nav-arrow {
-                position: absolute;
-                top: 50%;
-                transform: translateY(-50%);
-                background: rgba(255,255,255,0.2);
-                backdrop-filter: blur(5px);
-                color: white;
-                width: 40px; height: 40px;
-                border-radius: 50%;
-                display: flex; align-items: center; justify-content: center;
-                cursor: pointer;
-                transition: all 0.2s;
-                z-index: 10;
-                font-size: 20px;
+                position: absolute; top: 50%; transform: translateY(-50%);
+                background: rgba(255,255,255,0.2); backdrop-filter: blur(5px); color: white;
+                width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center;
+                justify-content: center; cursor: pointer; transition: all 0.2s; z-index: 10; font-size: 20px;
             }
             .nav-arrow:hover { background: white; color: black; }
-            .nav-arrow.left { left: 15px; }
-            .nav-arrow.right { right: 15px; }
-
-            .thumb-strip {
-                display: flex;
-                gap: 10px;
-                padding: 15px;
-                overflow-x: auto;
-                background: #fdfdfd;
-                border-top: 1px solid #eee;
-            }
+            .nav-arrow.left { left: 15px; } .nav-arrow.right { right: 15px; }
+            .thumb-strip { display: flex; gap: 10px; padding: 15px; overflow-x: auto; background: #fdfdfd; border-top: 1px solid #eee; }
             .thumb-item {
-                width: 80px; height: 60px;
-                border-radius: 8px;
-                cursor: pointer;
-                overflow: hidden;
-                flex-shrink: 0;
-                border: 2px solid transparent;
-                transition: all 0.2s;
-                position: relative;
+                width: 80px; height: 60px; border-radius: 8px; cursor: pointer; overflow: hidden; flex-shrink: 0;
+                border: 2px solid transparent; transition: all 0.2s; position: relative;
             }
-            .thumb-item.active { border-color: #007bff; transform: scale(1.05); }
+            .thumb-item.active { border-color: #00c6ff; transform: scale(1.05); }
             .thumb-item img, .thumb-item video { width: 100%; height: 100%; object-fit: cover; }
-
-            /* --- TYPOGRAPHY --- */
-            .shop-title { font-size: 2rem; font-weight: 800; color: #1a1a1a; margin-bottom: 5px; line-height: 1.2; }
+            .shop-title { font-size: 2.2rem; font-weight: 800; color: #1e293b; margin-bottom: 5px; line-height: 1.1; }
             .rating-badge {
-                background: #fff4e5; color: #b76e00;
-                padding: 4px 10px; border-radius: 6px;
-                font-weight: 700; display: inline-flex; align-items: center; gap: 5px;
-                font-size: 14px; margin-bottom: 15px;
+                background: #fffbeb; color: #b45309; padding: 6px 12px; border-radius: 8px;
+                font-weight: 700; display: inline-flex; align-items: center; gap: 5px; font-size: 15px; margin-bottom: 15px;
             }
-            .section-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 15px; color: #333; }
-
-            /* --- ACTION BUTTONS --- */
             .offer-btn {
-                background: linear-gradient(135deg, #FFD700 0%, #FDB931 100%);
-                border: none;
-                width: 100%;
-                padding: 14px;
-                border-radius: 12px;
-                font-weight: 700;
-                color: #333;
-                font-size: 16px;
-                box-shadow: 0 4px 15px rgba(253, 185, 49, 0.4);
-                transition: transform 0.2s;
+                background: linear-gradient(135deg, #FFD700 0%, #FDB931 100%); border: none; width: 100%;
+                padding: 14px; border-radius: 12px; font-weight: 800; color: #422006; font-size: 16px;
+                box-shadow: 0 4px 15px rgba(253, 185, 49, 0.4); transition: transform 0.2s;
             }
             .offer-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(253, 185, 49, 0.5); }
-
-            /* --- FIXED CONTACT ICONS --- */
-            .contact-row {
-                display: flex;
-                align-items: flex-start; /* Aligns to top for multi-line address */
-                gap: 12px;
-                margin-bottom: 18px;
-                font-size: 15px;
-                color: #555;
-            }
-            .contact-icon {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: #007bff;
-                width: 24px;
-                height: 24px;
-                flex-shrink: 0; /* Prevents squishing */
-                margin-top: 0px;
-            }
-            /* SVG Styling */
-            .contact-icon svg {
-                width: 20px;
-                height: 20px;
-                fill: none;
-                stroke: currentColor;
-                stroke-width: 2;
-                stroke-linecap: round;
-                stroke-linejoin: round;
-            }
-
-            /* --- REVIEWS --- */
-            .star-input { font-size: 32px; cursor: pointer; transition: transform 0.1s; color: #ddd; }
-            .star-input.active { color: #ffc107; }
+            .contact-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; font-size: 15px; color: #475569; }
+            .contact-icon { color: #3b82f6; width: 24px; height: 24px; flex-shrink: 0; }
+            .star-input { font-size: 32px; cursor: pointer; transition: transform 0.1s; color: #e2e8f0; }
+            .star-input.active { color: #f59e0b; }
             .star-input:hover { transform: scale(1.2); }
-
-            .review-item {
-                border-bottom: 1px solid #eee;
-                padding: 20px 0;
-            }
-            .review-item:last-child { border-bottom: none; }
-            .user-avatar {
-                width: 40px; height: 40px;
-                background: #e9ecef; color: #555;
-                border-radius: 50%;
-                display: flex; align-items: center; justify-content: center;
-                font-weight: bold;
-                font-size: 18px;
-            }
-            .delete-link { color: #dc3545; font-size: 12px; cursor: pointer; text-decoration: underline; margin-left: 10px; }
-
-            /* --- RELATED SHOPS --- */
             .related-card {
-                display: flex; gap: 15px;
-                padding: 12px;
-                border-radius: 12px;
-                transition: background 0.2s;
-                cursor: pointer;
-                border: 1px solid transparent;
+                display: flex; gap: 15px; padding: 12px; border-radius: 16px; transition: all 0.2s;
+                cursor: pointer; border: 1px solid transparent; background: #f8fafc;
             }
-            .related-card:hover { background: white; border-color: #eee; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-            .related-img { width: 90px; height: 90px; border-radius: 8px; object-fit: cover; background: #eee; }
+            .related-card:hover { background: white; border-color: #3b82f6; box-shadow: 0 10px 20px -5px rgba(0,0,0,0.1); transform: translateY(-2px); }
+            .related-img { width: 80px; height: 80px; border-radius: 12px; object-fit: cover; background: #e2e8f0; }
 
-            @media (max-width: 991px) {
-                .sticky-info-card { position: static; margin-top: 20px; }
-                .shop-title { font-size: 1.5rem; }
+            /* POPUP TOAST */
+            .custom-popup-toast {
+                position: fixed; top: 20px; right: 20px; z-index: 999999;
+                min-width: 300px; background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(12px); border-radius: 16px; padding: 16px;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.8);
+                display: flex; align-items: flex-start; gap: 12px;
             }
+            .popup-icon-box { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+            .popup-icon-box.success { background: #dcfce7; color: #16a34a; }
+            .popup-icon-box.error { background: #fee2e2; color: #dc2626; }
+            .popup-icon-box.warning { background: #fef3c7; color: #d97706; }
+            .popup-content h5 { margin: 0; font-size: 15px; font-weight: 700; color: #1e293b; }
+            .popup-content p { margin: 0; font-size: 13px; color: #64748b; line-height: 1.4; }
+
+            /* CONFIRM MODAL */
+            .modal-overlay {
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.5); backdrop-filter: blur(5px);
+                z-index: 999999; display: flex; align-items: center; justify-content: center;
+            }
+            .delete-modal {
+                background: white; width: 90%; max-width: 400px; border-radius: 20px;
+                padding: 24px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            }
+            .modal-actions { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+            .btn-cancel { background: #f1f5f9; color: #475569; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 600; }
+            .btn-delete { background: #fee2e2; color: #dc2626; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 600; }
+            .btn-delete:hover { background: #dc2626; color: white; }
         `}
       </style>
       <Navbar />
 
       <div className="container detail-container mt-4">
-
         {/* BACK BUTTON */}
-        <button className="back-btn" onClick={() => navigate(-1)}>
-            <span>←</span> {t("backToResults")}
-        </button>
+        <div className="back-btn" onClick={handleBack}>
+            <Icon icon="arrow-left" size={16} /> {t("back")}
+        </div>
 
         <div className="row">
-            {/* === LEFT COLUMN: MEDIA & REVIEWS === */}
+            {/* LEFT COLUMN */}
             <div className="col-lg-8">
-
-                {/* 1. MEDIA GALLERY CARD */}
+                {/* MEDIA */}
                 <div className="content-card">
                     {mainMedia ? (
                         <>
                             <div className="main-view-box">
                                 {mediaList.length > 1 && <div className="nav-arrow left" onClick={prevMedia}>❮</div>}
-
                                 {mainMedia.type === "video" ? (
-                                    <video
-                                        src={mainMedia.url}
-                                        controls autoPlay
-                                        style={{width: '100%', height: '100%', objectFit: 'contain'}}
-                                    />
+                                    <video src={mainMedia.url} controls autoPlay style={{width: '100%', height: '100%', objectFit: 'contain'}} />
                                 ) : (
-                                    <img
-                                        src={mainMedia.url}
-                                        alt="Shop Main"
-                                        style={{width: '100%', height: '100%', objectFit: 'cover'}}
-                                    />
+                                    <img src={mainMedia.url} alt="Shop Main" style={{width: '100%', height: '100%', objectFit: 'cover'}} />
                                 )}
-
                                 {mediaList.length > 1 && <div className="nav-arrow right" onClick={nextMedia}>❯</div>}
                             </div>
-
-                            {/* Thumbnails */}
                             {mediaList.length > 1 && (
                                 <div className="thumb-strip">
                                     {mediaList.map((media, i) => (
-                                        <div
-                                            key={i}
-                                            className={`thumb-item ${currentIndex === i ? 'active' : ''}`}
-                                            onClick={() => { setMainMedia(media); setCurrentIndex(i); }}
-                                        >
-                                            {media.type === "video" ? (
-                                                <>
-                                                    <video src={media.url} muted />
-                                                    <div style={{position:'absolute', top:0, left:0, width:'100%', height:'100%', background:'rgba(0,0,0,0.3)', display:'flex', alignItems:'center', justifyContent:'center', color:'white'}}>▶</div>
-                                                </>
-                                            ) : (
-                                                <img src={media.url} alt="thumb" />
-                                            )}
+                                        <div key={i} className={`thumb-item ${currentIndex === i ? 'active' : ''}`} onClick={() => { setMainMedia(media); setCurrentIndex(i); }}>
+                                            {media.type === "video" ? <span style={{fontSize:20, display:'flex', height:'100%', alignItems:'center', justifyContent:'center'}}>▶</span> : <img src={media.url} alt="thumb" />}
                                         </div>
                                     ))}
                                 </div>
                             )}
                         </>
-                    ) : (
-                        <div className="p-5 text-center text-muted">No Images Available</div>
-                    )}
+                    ) : <div className="p-5 text-center text-muted">No Images Available</div>}
                 </div>
 
-                {/* 2. REVIEWS SECTION */}
+                {/* REVIEWS */}
                 <div className="content-card p-4">
-                    <h3 className="section-title">{t("reviews")} <span className="text-muted" style={{fontWeight:400, fontSize:'0.9em'}}>({reviews.length})</span></h3>
+                    <h3 style={{fontWeight:800, color:'#1e293b', marginBottom:20}}>{t("reviews")} <span className="text-muted" style={{fontSize:'0.6em', verticalAlign:'middle'}}>({reviews.length})</span></h3>
 
-                    {/* Add Review Box */}
+                    {/* ADD REVIEW BOX */}
                     {loggedInUserId ? (
-                        <div className="bg-light p-3 rounded mb-4 border">
-                            <h6 className="mb-2 fw-bold text-primary">{t("addReview")}</h6>
+                        <div className="bg-light p-4 rounded-4 mb-4 border border-light">
+                            <h6 className="mb-3 fw-bold text-dark">{t("addReview")}</h6>
                             <div className="mb-3">
                                 {[1, 2, 3, 4, 5].map((num) => (
-                                    <span
-                                        key={num}
-                                        className={`star-input ${num <= rating ? 'active' : ''}`}
-                                        onClick={() => setRating(num)}
-                                    >★</span>
+                                    <span key={num} className={`star-input ${num <= rating ? 'active' : ''}`} onClick={() => setRating(num)}>★</span>
                                 ))}
                             </div>
-                            <textarea
-                                className="form-control mb-3"
-                                rows="3"
-                                placeholder={t("reviewPlaceholder")}
-                                value={reviewText}
-                                onChange={(e) => setReviewText(e.target.value)}
-                            ></textarea>
-                            <button className="btn btn-primary px-4 fw-bold" onClick={submitReview}>{t("submitReview")}</button>
+                            <textarea className="form-control mb-3 border-0 shadow-sm" style={{borderRadius:12, padding:15}} rows="3" placeholder={t("reviewPlaceholder")} value={reviewText} onChange={(e) => setReviewText(e.target.value)}></textarea>
+                            <button className="btn btn-primary px-4 py-2 fw-bold rounded-pill" onClick={submitReview}>{t("submitReview")}</button>
                         </div>
                     ) : (
-                        <div className="alert alert-info d-flex justify-content-between align-items-center">
-                            <span>{t("loginReviewHint")}</span>
-                            <button className="btn btn-sm btn-light fw-bold" onClick={() => {
-                                sessionStorage.setItem("REDIRECT_AFTER_LOGIN", JSON.stringify(rawData));
+                        <div className="alert alert-light border d-flex justify-content-between align-items-center rounded-4">
+                            <span className="text-muted fw-bold small">Log in to write a review</span>
+                            <button className="btn btn-sm btn-dark rounded-pill fw-bold px-3" onClick={() => {
+                                sessionStorage.setItem("REDIRECT_AFTER_LOGIN", JSON.stringify({ shop: restoredState.shop, city: restoredState.city }));
                                 navigate("/login");
                             }}>{t("loginToReview")}</button>
                         </div>
                     )}
 
-                    {/* Review List */}
+                    {/* REVIEW LIST */}
                     {reviews.length === 0 ? (
-                        <div className="text-center text-muted py-4">{t("noReviews")}</div>
+                        <div className="text-center text-muted py-4 small">{t("noReviews")}</div>
                     ) : (
                         <div className="review-list">
                             {reviews.slice(0, visibleReviewCount).map((r, i) => (
-                                <div key={i} className="review-item">
-                                    <div className="d-flex justify-content-between align-items-start">
+                                <div key={i} className="py-3 border-bottom">
+                                    <div className="d-flex justify-content-between">
                                         <div className="d-flex gap-3">
-                                            <div className="user-avatar">{r.username ? r.username[0].toUpperCase() : 'U'}</div>
+                                            <div style={{width:40, height:40, background:'#e2e8f0', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'bold'}}>{r.username?.[0]?.toUpperCase()}</div>
                                             <div>
-                                                <div className="fw-bold text-dark">{r.username || "User"}</div>
-                                                <div className="text-warning" style={{fontSize:14}}>{"★".repeat(r.rating) + "☆".repeat(5 - r.rating)}</div>
+                                                <div className="fw-bold text-dark" style={{fontSize:14}}>{r.username || "User"}</div>
+                                                <div className="text-warning" style={{fontSize:12}}>{"★".repeat(r.rating) + "☆".repeat(5 - r.rating)}</div>
                                             </div>
                                         </div>
-                                        <div className="text-muted small">
+                                        <div className="text-muted" style={{fontSize:11}}>
                                             {r.date || "Recent"}
-                                            {loggedInUserId === r.user_id && (
-                                                <span className="delete-link" onClick={() => deleteReview(r._id)}>Delete</span>
-                                            )}
+                                            {loggedInUserId === r.user_id && <span onClick={() => setDeleteId(r._id)} className="text-danger ms-2" style={{cursor:'pointer', textDecoration:'underline'}}>Delete</span>}
                                         </div>
                                     </div>
-                                    <p className="mt-2 mb-0 text-secondary">{r.review}</p>
+                                    <p className="mt-2 mb-0 text-secondary small">{r.review}</p>
                                 </div>
                             ))}
                         </div>
                     )}
-
                     {reviews.length > visibleReviewCount && (
-                        <button className="btn btn-outline-secondary w-100 mt-3 fw-bold" onClick={loadAllReviews}>
-                            View all {reviews.length} reviews
-                        </button>
+                        <button className="btn btn-light w-100 mt-3 fw-bold rounded-pill" onClick={loadAllReviews}>Show all reviews</button>
                     )}
                 </div>
-
             </div>
 
-            {/* === RIGHT COLUMN: INFO & CONTACT === */}
+            {/* RIGHT COLUMN */}
             <div className="col-lg-4">
                 <div className="sticky-info-card">
-
-                    {/* Title & Rating */}
                     <h1 className="shop-title">{getField("shop_name")}</h1>
                     <div className="rating-badge">
-                        <span style={{color: '#b76e00'}}>★</span> {avgRating || "New"}
-                        {reviews.length > 0 && <span style={{color:'#666', fontWeight:400, marginLeft:5}}>({reviews.length} reviews)</span>}
+                        <Icon icon="star" color="#b45309" style={{marginBottom:2}}/> {avgRating || "New"}
+                        {reviews.length > 0 && <span className="ms-1 fw-normal text-muted">({reviews.length})</span>}
                     </div>
-
-                    {/* === VIEW COUNT DISPLAY === */}
-                    <div className="mb-3 text-secondary" style={{ fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>👁</span>
-                        <strong>{views}</strong>
-                        <span>{t("viewsText")}</span>
+                    <div className="mb-3 text-muted fw-bold small d-flex align-items-center gap-2">
+                        <Icon icon="eye-open" color="#94a3b8"/> {views} {t("viewsText")}
                     </div>
-                    {/* ========================== */}
+                    <p className="text-secondary fw-bold mb-4"><Icon icon="map-marker" /> {cityDoc.city_name}</p>
+                    <hr className="my-4 border-light" />
+                    <h5 className="fw-bold text-dark mb-4">{t("contactInfo")}</h5>
 
-                    {/* Location */}
-                    <p className="text-muted mb-4">
-                        {cityDoc.city_name}, {cityDoc.district}
-                    </p>
+                    {/* ⭐ SHOW FETCHED DATA (PHONE, EMAIL, LANDMARK) */}
+                    <div className="contact-row"><Icon icon="phone" className="contact-icon"/> <a href={`tel:${getField("phone_number")}`} className="text-decoration-none text-dark fw-bold">{getField("phone_number") === "N/A" ? "No Phone" : getField("phone_number")}</a></div>
+                    <div className="contact-row"><Icon icon="envelope" className="contact-icon"/> {getField("email") === "N/A" ? "No Email" : getField("email")}</div>
+                    <div className="contact-row"><Icon icon="geolocation" className="contact-icon"/> {getField("address")}</div>
 
-                    <hr className="my-4" />
-
-                    {/* Contact Details with INLINE SVGs */}
-                    <h5 className="section-title mb-3">{t("contactInfo")}</h5>
-
-                    <div className="contact-row">
-                        <div className="contact-icon">
-                            {/* Phone Icon SVG */}
-                            <svg viewBox="0 0 24 24">
-                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                            </svg>
+                    {/* ⭐⭐ ADDED LANDMARK DISPLAY HERE ⭐⭐ */}
+                    {getField("landmark") && getField("landmark") !== "N/A" && (
+                        <div className="contact-row">
+                            <Icon icon="flag" className="contact-icon"/>
+                            <span className="text-dark"><b>Landmark:</b> {getField("landmark")}</span>
                         </div>
-                        <div>
-                            <strong>Phone</strong><br/>
-                            <a href={`tel:${getField("phone_number")}`} className="text-decoration-none">{getField("phone_number")}</a>
-                        </div>
-                    </div>
+                    )}
 
-                    <div className="contact-row">
-                        <div className="contact-icon">
-                            {/* Email Icon SVG */}
-                            <svg viewBox="0 0 24 24">
-                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                                <polyline points="22,6 12,13 2,6"></polyline>
-                            </svg>
-                        </div>
-                        <div>
-                            <strong>Email</strong><br/>
-                            {getField("email")}
-                        </div>
-                    </div>
+                    <button className="offer-btn mt-4" onClick={() => navigate(`/offers/shop/${shopId}/`, { state: { shop: restoredState.shop, city: restoredState.city } })}>🎉 {t("offers")}</button>
 
-                    <div className="contact-row">
-                        <div className="contact-icon">
-                            {/* Map Pin Icon SVG */}
-                            <svg viewBox="0 0 24 24">
-                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                                <circle cx="12" cy="10" r="3"></circle>
-                            </svg>
-                        </div>
-                        <div>
-                            <strong>Address</strong><br/>
-                            {getField("address")}<br/>
-                            <span className="text-muted small">Landmark: {getField("landmark")}</span>
-                        </div>
-                    </div>
+                    <hr className="my-4 border-light" />
 
-                    {/* Offers Button */}
-                    <button className="offer-btn mt-4" onClick={() => {
-                        navigate(`/offers/shop/${shopId}/`, {
-                            state: rawData,
-                        });
-                    }}>
-                       🎉 {t("offers")}
-                    </button>
-
-                    <hr className="my-4" />
-
-                    {/* Related Shops */}
-                    <h5 className="section-title mb-3" style={{fontSize:'1rem'}}>{t("moreShops")}</h5>
+                    {/* CACHED TOP RATED SHOPS */}
+                    <h5 className="fw-bold text-dark mb-3" style={{fontSize:'1rem'}}>{t("moreShops")}</h5>
                     <div className="d-flex flex-column gap-2">
-                        {relatedShops.length > 0 ? relatedShops.slice(0, 4).map((rs, idx) => (
-                            <RelatedCard key={idx} data={rs} navigate={navigate} />
-                        )) : (
-                            <div className="text-muted small">No related shops found.</div>
-                        )}
+                        {loadingTopRated ? (
+                            <div className="text-center text-muted py-3"><div className="spinner-border spinner-border-sm"></div></div>
+                        ) : topRatedShops.length > 0 ? (
+                            topRatedShops.map((item, idx) => <TopRatedShopCard key={idx} data={item} navigate={navigate} />)
+                        ) : <div className="text-muted small text-center py-2">No similar shops found.</div>}
                     </div>
-
                 </div>
             </div>
         </div>
-
       </div>
+
+      {/* POPUP TOAST */}
+      <AnimatePresence>
+        {popup && (
+            <motion.div className="custom-popup-toast" variants={popupVariants} initial="initial" animate="animate" exit="exit">
+                <div className={`popup-icon-box ${popup.type}`}><Icon icon={popup.type === 'success' ? 'tick' : popup.type === 'error' ? 'error' : 'warning-sign'} size={18} /></div>
+                <div className="popup-content">{popup.title && <h5>{popup.title}</h5>}<p>{popup.message}</p></div>
+            </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* DELETE CONFIRMATION MODAL */}
+      <AnimatePresence>
+        {deleteId && (
+            <motion.div className="modal-overlay" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+                <motion.div className="delete-modal" variants={modalVariants} initial="hidden" animate="visible" exit="exit">
+                    <div style={{background:'#fee2e2', width:60, height:60, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 20px auto', color:'#dc2626'}}>
+                        <Icon icon="trash" size={30} />
+                    </div>
+                    <h4 className="fw-bold text-dark mb-2">{t("deleteTitle")}</h4>
+                    <p className="text-secondary mb-4">{t("deleteMsg")}</p>
+                    <div className="modal-actions">
+                        <button className="btn-cancel" onClick={() => setDeleteId(null)}>{t("cancel")}</button>
+                        <button className="btn-delete" onClick={confirmDeleteReview}>{t("delete")}</button>
+                    </div>
+                </motion.div>
+            </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
 // ==========================================================
-// RELATED CARD COMPONENT
+// ⭐ TOP RATED CARD
 // ==========================================================
-const RelatedCard = ({ data, navigate }) => {
-  const shop = data.shop || {};
-  const city = data.city || {};
-  const [photo, setPhoto] = useState(null);
+const TopRatedShopCard = ({ data, navigate }) => {
+  const imagePath =
+    data.image && data.image.startsWith("http")
+      ? data.image
+      : data.image
+      ? `${API_BASE}/${data.image}`
+      : null;
 
-  useEffect(() => {
-    setPhoto(null);
-    if (!shop._id) return;
-    fetch(`${API_BASE}/shop/${shop._id}/media/`)
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.status && json.media) {
-          const firstImg = json.media.find(item => item.type === 'image');
-          if (firstImg) setPhoto(`${API_BASE}/${firstImg.path}`);
-        }
-      })
-      .catch(err => console.log(err));
-  }, [shop]);
+  const handleClick = () => {
+    const newShopState = {
+      shop: {
+        _id: data.shop_id, // Pass ID correctly
+        shop_id: data.shop_id, // Pass ID correctly again for safety
+        shop_name: data.shop_name,
+        main_image: data.image,
+        average_rating: data.average_rating,
+        review_count: data.review_count,
+        // Pass what we have, but the MAIN PAGE will now fetch the rest
+        phone_number: data.phone_number || "",
+        email: data.email || "",
+        address: data.address || "",
+        landmark: data.landmark || "",
+        description: data.description || "",
+        city: data.city
+      },
+      city: { city_name: data.city }
+    };
+
+    sessionStorage.setItem("SELECTED_SHOP", JSON.stringify(newShopState));
+    navigate("/shop", { state: newShopState });
+  };
 
   return (
-    <div
-        className="related-card"
-        onClick={() => {
-            // Normalize structure for storage
-            const shopObj = data.shop || data.shop?.shop || data;
-            const cityObj = data.city || data.shop?.city || {};
-            
-            const storageData = { shop: shopObj, city: cityObj };
-
-            // 1. Set Selected Shop
-            sessionStorage.setItem("SELECTED_SHOP", JSON.stringify(storageData));
-            // 2. Navigate (replace: false allows user to go back)
-            // The key={shopId} in main component handles the refresh
-            navigate("/shop", { state: storageData });
-        }}
-    >
-        {photo ? (
-            <img src={photo} className="related-img" alt={shop.shop_name} />
-        ) : (
-            <div className="related-img d-flex align-items-center justify-content-center text-muted small">No Img</div>
-        )}
-        <div>
-            <div className="fw-bold text-dark text-truncate" style={{maxWidth: '150px'}}>{shop.shop_name}</div>
-            <div className="text-muted small mb-1">{city.city_name}</div>
-            <div className="text-warning small">View Details →</div>
+    <div className="related-card" onClick={handleClick}>
+      {imagePath ? (
+        <img
+          src={imagePath}
+          className="related-img"
+          alt={data.shop_name}
+          onError={(e) => (e.target.style.display = "none")}
+        />
+      ) : (
+        <div className="related-img d-flex align-items-center justify-content-center text-muted small">
+          <Icon icon="shop" color="#cbd5e1" />
         </div>
+      )}
+
+      <div className="flex-grow-1">
+        <div className="fw-bold text-dark" style={{ fontSize: "0.95rem" }}>
+          {data.shop_name}
+        </div>
+        <div className="text-muted small">{data.city}</div>
+
+        {data.average_rating > 0 && (
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "#b45309",
+              background: "#fffbeb",
+              padding: "2px 6px",
+              borderRadius: 4,
+              display: "inline-block"
+            }}
+          >
+            ★ {Math.round(data.average_rating)}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
+
 
 export default ShopDetails;

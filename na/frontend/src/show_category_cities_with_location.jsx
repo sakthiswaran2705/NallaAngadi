@@ -9,6 +9,7 @@ import Navbar from "./Navbar.jsx";
 // 👇 ENSURE THIS IMAGE PATH IS CORRECT
 import heroBgImage from "./image_cc786f.jpg";
 const API_BASE = import.meta.env.VITE_BACKEND_URL;
+
 // ---------------- DEBOUNCE HOOK ----------------
 const useDebounce = (callback, delay) => {
     const timer = useRef(null);
@@ -76,6 +77,7 @@ function Val() {
     const [isSlidesLoading, setIsSlidesLoading] = useState(false);
 
     const [topRatedShops, setTopRatedShops] = useState([]);
+    // 👇 INIT FALSE (We check cache first inside useEffect)
     const [isTopRatedLoading, setIsTopRatedLoading] = useState(false);
 
     const [popup, setPopup] = useState(null);
@@ -116,6 +118,7 @@ function Val() {
         const loadCategories = async () => {
             setIsCatLoading(true);
             try {
+                // Category list usually doesn't change often, could cache this too if needed
                 const res = await fetch(`${API_BASE}/category/list/?lang=${lang}`);
                 const json = await res.json();
                 setCategoryList(json.data || []);
@@ -132,9 +135,38 @@ function Val() {
         if (r) setRecentSearch(JSON.parse(r));
     }, [lang]);
 
-    // ---------------- 3. FETCH TOP RATED (Nearby 25km Logic) ----------------
+    // ---------------- 3. FETCH TOP RATED (Nearby 25km Logic) - FIXED WITH SESSION STORAGE ----------------
     useEffect(() => {
         const loadTopRated = async () => {
+            // Current Params
+            const currentParams = {
+                city: cityInput,
+                lat: coords.lat,
+                lon: coords.lon,
+                lang: lang
+            };
+
+            // 👇 CHECK CACHE: Check if we have data for THIS exact location/city
+            const cachedData = sessionStorage.getItem("TOP_RATED_DATA");
+            const cachedParams = sessionStorage.getItem("TOP_RATED_PARAMS");
+
+            if (cachedData && cachedParams) {
+                const parsedParams = JSON.parse(cachedParams);
+                // Check if current City/Location matches what is in Cache
+                if (
+                    parsedParams.city === currentParams.city &&
+                    parsedParams.lat === currentParams.lat &&
+                    parsedParams.lon === currentParams.lon &&
+                    parsedParams.lang === currentParams.lang
+                ) {
+                    // ✅ HIT: Use Cached Data immediately (No Loading Spinner)
+                    setTopRatedShops(JSON.parse(cachedData));
+                    setIsTopRatedLoading(false);
+                    return; // 🛑 Stop here
+                }
+            }
+
+            // ⚠️ MISS: If data is not in cache (or location changed), Fetch New Data
             setIsTopRatedLoading(true);
             try {
                 let url = `${API_BASE}/shops/top-rated?lang=${lang}&limit=6`;
@@ -148,7 +180,12 @@ function Val() {
                 const json = await res.json();
 
                 if (json.status) {
-                    setTopRatedShops(json.data || []);
+                    const data = json.data || [];
+                    setTopRatedShops(data);
+
+                    // ✅ SAVE TO CACHE (So when you come back, it won't load again)
+                    sessionStorage.setItem("TOP_RATED_DATA", JSON.stringify(data));
+                    sessionStorage.setItem("TOP_RATED_PARAMS", JSON.stringify(currentParams));
                 } else {
                     setTopRatedShops([]);
                 }
@@ -186,6 +223,10 @@ function Val() {
                     if (city) {
                         setCityInput(city);
                         sessionStorage.setItem("CITY_NAME", city);
+
+                        // Force Update Cache Logic: Location changed, so we want new data
+                        // The useEffect will detect the change in 'cityInput' and fetch new data automatically.
+
                         showPopup("success", `${city} (25km Radius Set)`, "Location Updated");
                     }
                 } catch (err) {
@@ -197,7 +238,7 @@ function Val() {
         );
     };
 
-    // ---------------- 5. SEARCH LOGIC (FIXED) ----------------
+    // ---------------- 5. SEARCH LOGIC ----------------
     const fetchCategorySuggestions = async (value) => {
         if (!value.trim()) { setSuggestions([]); return; }
 
@@ -479,8 +520,8 @@ function Val() {
 
                 /* RESTORED SLIDESHOW STYLES */
                 .slideshow-wrapper { max-width: 1000px; margin: 0 auto 60px auto; }
-                .modern-slideshow-container { width: 100%; height: 400px; border-radius: 30px; overflow: hidden; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); background: #0f172a; }
-                .slide-media { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; cursor: pointer; }
+                .modern-slideshow-container { width: 100%; height: 400px; border-radius: 30px; overflow: hidden; overflow: hidden; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); background: #0f172a; }
+                .slide-media { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; cursor: pointer; object-fit: cover; display: block; }
                 .modern-slideshow-container:hover .slide-media { transform: scale(1.05); }
                 .slide-cta { position: absolute; bottom: 30px; left: 30px; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); color: var(--text-dark); padding: 12px 24px; border-radius: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); transition: all 0.3s; min-width: 150px; }
                 .slide-cta:hover { background: var(--primary-dark); color: white; transform: translateY(-3px); }
@@ -673,20 +714,18 @@ function Val() {
                         )}
                     </AnimatePresence>
 
-                    {/* 1. CATEGORY GRID (FIXED SLOWNESS) */}
+                    {/* 1. CATEGORY GRID */}
                     <div className="mb-5" ref={categoriesRef} style={{scrollMarginTop:'100px'}}>
                         <div className="d-flex justify-content-between align-items-center mb-4">
                             <h4 className="section-header mb-0">
                                 <span style={{color: 'var(--primary-dark)', marginRight: '10px'}}>🚀</span>
                                 {t("Explore Categories")}
                             </h4>
-                            {/* View All Button */}
                             <Button minimal intent="primary" onClick={() => navigate('/all-categories')} style={{fontWeight:'bold'}}>
                                 {t("View All")} <i className="bp4-icon bp4-icon-arrow-right ms-1"></i>
                             </Button>
                         </div>
 
-                        {/* SKELETON LOADER IF LOADING */}
                         {isCatLoading ? (
                              <div className="category-grid">
                                  {[...Array(12)].map((_, i) => <SkeletonCard key={i} />)}
@@ -699,7 +738,6 @@ function Val() {
                                 whileInView="visible"
                                 viewport={{ once: true, margin: "-100px" }}
                             >
-                                {/* Limit to 16 items on Home Page */}
                                 {categoryList.slice(0, 21).map((cat, idx) => (
                                     <motion.div
                                         key={idx}
@@ -726,7 +764,6 @@ function Val() {
 
                         {isTopRatedLoading ? (
                             <div className="shop-grid">
-                                {/* Simple Loading State for Shops */}
                                 {[...Array(4)].map((_, i) => (
                                     <div key={i} className="shop-card" style={{height: 280, background:'#f8fafc'}}>
                                         <div className="d-flex justify-content-center align-items-center h-100">
@@ -746,17 +783,46 @@ function Val() {
                                     <motion.div
                                         key={idx}
                                         className="shop-card"
-                                        // ✅ FIXED: Navigation uses state like SearchResults.jsx
                                         onClick={() => {
+                                            // 1. Prepare Navigation Data (Basic Partial Data)
                                             const shopData = {
-                                                _id: shop.shop_id, // Ensure ID matches ShopDetails check
-                                                shop_name: shop.shop_name,
-                                                main_image: shop.image,
-                                                // Add other fields if needed for display before full fetch
-                                            };
+                                                      _id: shop.shop_id,
+                                                      shop_name: shop.shop_name,
+                                                      main_image: shop.image,
+                                                      average_rating: shop.average_rating,
+                                                      review_count: shop.review_count,
+
+                                                      // 🔥 ADD THESE
+                                                      phone_number: shop.phone_number || "",
+                                                      email: shop.email || "",
+                                                      address: shop.address || "",
+                                                      landmark: shop.landmark || "",
+                                                      description: shop.description || ""
+                                                    };
+
                                             const cityData = {
                                                 city_name: shop.city
                                             };
+
+                                            // 2. [FIX] POPULATE SESSION STORAGE FOR RELATED SHOPS
+                                            // We save the entire current Top Rated list as "Home Results"
+                                            const sessionShops = topRatedShops.map(s => ({
+                                                shop: {
+                                                    _id: s.shop_id,
+                                                    shop_name: s.shop_name,
+                                                    image: s.image,
+                                                    average_rating: s.average_rating,
+                                                    review_count: s.review_count
+                                                },
+                                                city: { city_name: s.city }
+                                            }));
+
+                                            // Store in session so ShopDetails can read it
+                                            sessionStorage.setItem("HOME_RESULTS", JSON.stringify(sessionShops));
+                                            // Clear old search context to prefer Home Results
+                                            sessionStorage.setItem("SEARCH_CONTEXT_SHOPS", JSON.stringify([]));
+
+                                            // 3. Navigate
                                             navigate("/shop", { state: { shop: shopData, city: cityData } });
                                         }}
                                         whileHover={{ y: -5 }}
@@ -851,4 +917,3 @@ function Val() {
 }
 
 export default Val;
-
