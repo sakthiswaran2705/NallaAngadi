@@ -61,6 +61,18 @@ const useDebounce = (callback, delay) => {
 
 const AppToaster = await OverlayToaster.create({ position: Position.TOP });
 const API_BASE = import.meta.env.VITE_BACKEND_URL;
+const resolveImageUrl = (path) => {
+  if (!path) return "https://via.placeholder.com/400x300";
+
+  // If backend already sent full URL (http/https)
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    // Force HTTPS to avoid mixed content
+    return path.replace("http://", "https://");
+  }
+
+  // If backend sent relative path
+  return `${API_BASE}/${path.replace(/^\/+/, "")}`;
+};
 
 export default function SearchResults() {
   const [searchParams] = useSearchParams();
@@ -386,10 +398,10 @@ export default function SearchResults() {
                     <AnimatePresence>
                     {results.map((item, idx) => {
                         const s = item.shop || item.shop?.shop || item;
-                        const img = s.main_image
-                        ? `${API_BASE}/${s.main_image}`
+                        const img = resolveImageUrl(
+                          s.main_image || s.media?.[0]?.path
+                        );
 
-                        : (s.media?.[0]?.path ? `${API_BASE}/${s.media[0].path}` : "https://via.placeholder.com/400x300");
 
                         const contactNum = s.mobile || s.phone_number;
                         const mapLocation = s.address ? `${s.shop_name}, ${s.address}` : (s.city ? `${s.shop_name}, ${s.city}` : cityInput);
