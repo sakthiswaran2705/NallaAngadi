@@ -388,6 +388,7 @@ export default function SearchResults() {
                         const s = item.shop || item.shop?.shop || item;
                         const img = s.main_image
                         ? `${API_BASE}/${s.main_image}`
+
                         : (s.media?.[0]?.path ? `${API_BASE}/${s.media[0].path}` : "https://via.placeholder.com/400x300");
 
                         const contactNum = s.mobile || s.phone_number;
