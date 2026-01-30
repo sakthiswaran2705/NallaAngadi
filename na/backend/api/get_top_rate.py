@@ -4,7 +4,8 @@ from math import radians, cos, sin, asin, sqrt
 from common_urldb import db
 from translator import en_to_ta
 from cache import get_cached, set_cache
-from search_shops import translate_text_en_to_ta,phonetic_tamil
+from search_shops import translate_text_en_to_ta, phonetic_tamil
+
 # Reuse your existing helper functions
 # (safe, translate_dict, translate_text_en_to_ta, phonetic_tamil - assumed available in scope)
 
@@ -35,7 +36,6 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 
 
 # ---------------- TOP RATED API ----------------
-# ---------------- TOP RATED API (FIXED) ----------------
 @router.get("/shops/top-rated", operation_id="getTopRatedShops")
 def get_top_rated_shops(
         lang: str = Query("en"),
@@ -43,7 +43,7 @@ def get_top_rated_shops(
         lat: float | None = Query(None),
         lon: float | None = Query(None),
         radius: int = Query(25),  # Default 25km radius
-        limit: int = Query(6)  # ✅ Default Limit set to 6
+        limit: int = Query(6)  # Default Limit set to 6
 ):
     # Only fetch active/approved shops
     query = {"status": "approved"}
@@ -70,7 +70,7 @@ def get_top_rated_shops(
                 except:
                     pass
 
-                    # 2. City Name Fallback
+        # 2. City Name Fallback
         if not is_nearby and city:
             shop_city_id = s.get("city_id")
             if shop_city_id:
@@ -99,11 +99,7 @@ def get_top_rated_shops(
             avg_rating = sum(r.get("rating", 0) for r in shop_reviews) / len(shop_reviews)
             count = len(shop_reviews)
 
-        # ✅ OPTIONAL: Only show shops that have at least 1 review?
-        # Uncomment the next line if you want strictly "Rated" shops only.
-        # if count == 0: continue
-
-        # --- C. IMAGE EXTRACTION (FIXED) ---
+        # --- C. IMAGE EXTRACTION ---
         final_image = ""
 
         # 1. Check 'main_image' first
@@ -140,10 +136,15 @@ def get_top_rated_shops(
         valid_candidates.append({
             "shop_id": sid,
             "shop_name": s.get("shop_name", ""),
-            "image": final_image,  # ✅ This now holds the correct path
+            "description": s.get("description", ""),
+            "address": s.get("address", ""),
+            "landmark": s.get("landmark", ""),
+            "phone_number": s.get("phone_number", ""),
+            "email": s.get("email", ""),
+            "image": final_image,
             "city": city_name,
             "category_name": cat_name,
-            "average_rating": avg_rating,
+            "average_rating": round(avg_rating, 1),
             "review_count": count
         })
 
@@ -173,3 +174,87 @@ def get_top_rated_shops(
         final_output = translated_output
 
     return {"status": True, "data": final_output}
+
+
+# ---------------- GET PARTICULAR SHOP DETAILS ----------------
+@router.get("/shop/{shop_id}", operation_id="getShopDetails")
+def get_shop_details(shop_id: str, lang: str = Query("en")):
+    # 1. Validate ID
+    if not ObjectId.is_valid(shop_id):
+        return {"status": False, "message": "Invalid Shop ID"}
+
+    # 2. Find Shop
+    shop = col_shop.find_one({"_id": ObjectId(shop_id)})
+    if not shop:
+        return {"status": False, "message": "Shop not found"}
+
+    sid = str(shop["_id"])
+
+    # 3. Calculate Ratings
+    shop_reviews = list(col_reviews.find({"shop_id": sid}))
+    if not shop_reviews:
+        avg_rating = 0
+        count = 0
+    else:
+        avg_rating = sum(r.get("rating", 0) for r in shop_reviews) / len(shop_reviews)
+        count = len(shop_reviews)
+
+    # 4. Extract Main Image
+    final_image = ""
+    if shop.get("main_image"):
+        final_image = shop.get("main_image")
+    elif shop.get("media") and isinstance(shop["media"], list):
+        for m in shop["media"]:
+            if m.get("type") == "image" and m.get("path"):
+                final_image = m.get("path")
+                break
+
+    # 5. Fetch City Name
+    city_name = ""
+    cid = shop.get("city_id")
+    if ObjectId.is_valid(str(cid)):
+        c_obj = col_city.find_one({"_id": ObjectId(cid)})
+        if c_obj: city_name = c_obj.get("city_name", "")
+
+    # 6. Fetch Category Name
+    cat_name = ""
+    cats = shop.get("category", [])
+    if cats:
+        first_cat = cats[0]
+        if ObjectId.is_valid(str(first_cat)):
+            cat_obj = col_category.find_one({"_id": ObjectId(first_cat)})
+        else:
+            cat_obj = col_category.find_one({"name": first_cat})
+        if cat_obj: cat_name = cat_obj.get("name", "")
+
+    # 7. Construct Response Data
+    data = {
+        "shop_id": sid,
+        "shop_name": shop.get("shop_name", ""),
+        "description": shop.get("description", ""),
+        "address": shop.get("address", ""),
+        "landmark": shop.get("landmark", ""),
+        "phone_number": shop.get("phone_number", ""),
+        "email": shop.get("email", ""),
+        "image": final_image,
+        "media": shop.get("media", []),  # Include all media for gallery
+        "city": city_name,
+        "category_name": cat_name,
+        "average_rating": round(avg_rating, 1),
+        "review_count": count
+    }
+
+    # 8. Translation
+    if lang == "ta":
+        t_shop_name = translate_text_en_to_ta(data["shop_name"])
+        if t_shop_name.strip().lower() == data["shop_name"].strip().lower():
+            t_shop_name = phonetic_tamil(data["shop_name"])
+
+        data["shop_name"] = t_shop_name
+        data["city"] = translate_text_en_to_ta(data["city"])
+        data["category_name"] = translate_text_en_to_ta(data["category_name"])
+        data["description"] = translate_text_en_to_ta(data["description"])
+        data["address"] = translate_text_en_to_ta(data["address"])
+        data["landmark"] = translate_text_en_to_ta(data["landmark"])
+
+    return {"status": True, "data": data}
