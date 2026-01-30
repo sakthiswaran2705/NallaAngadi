@@ -401,7 +401,7 @@ export default function SearchResults() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.05 }}
-                            // 👇 UPDATED CLICK HANDLER
+             
                             onClick={() => handleCardClick(s)}
                         >
                             <div className="card-image-box">
