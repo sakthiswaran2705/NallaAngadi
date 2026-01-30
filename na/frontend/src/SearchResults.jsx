@@ -387,8 +387,9 @@ export default function SearchResults() {
                     {results.map((item, idx) => {
                         const s = item.shop || item.shop?.shop || item;
                         const img = s.main_image
-                        ? `http://127.0.0.1:8000/${s.main_image}`
-                        : (s.media?.[0]?.path ? `http://127.0.0.1:8000/${s.media[0].path}` : "https://via.placeholder.com/400x300");
+                        ? `${API_BASE}/${s.main_image}`
+
+                        : (s.media?.[0]?.path ? `${API_BASE}/${s.media[0].path}` : "https://via.placeholder.com/400x300");
 
                         const contactNum = s.mobile || s.phone_number;
                         const mapLocation = s.address ? `${s.shop_name}, ${s.address}` : (s.city ? `${s.shop_name}, ${s.city}` : cityInput);
