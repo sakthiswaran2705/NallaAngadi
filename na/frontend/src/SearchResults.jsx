@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
-// 👇 FIXED: Changed Toaster to OverlayToaster for Blueprint v5+
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom"; // Added useLocation
 import { Button, Spinner, Icon, NonIdealState, OverlayToaster, Position } from "@blueprintjs/core";
 import { motion, AnimatePresence } from "framer-motion";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -9,150 +8,28 @@ import Navbar from "./Navbar.jsx";
 /* ---------------- "FLOATING PILL" DESIGN SYSTEM ---------------- */
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');
-
-  :root {
-    --primary: #2563eb;
-    --primary-hover: #1d4ed8;
-    --accent: #f59e0b;
-    --bg-page: #f8fafc;
-    --text-main: #0f172a;
-    --text-sub: #64748b;
-    --shadow-soft: 0 10px 40px -10px rgba(0,0,0,0.08);
-    --shadow-hover: 0 20px 40px -10px rgba(0,0,0,0.15);
-  }
-
-  body {
-    background-color: var(--bg-page);
-    font-family: 'DM Sans', sans-serif;
-    color: var(--text-main);
-    margin: 0;
-  }
-
-  /* --- HEADER AREA --- */
-  .search-header {
-    background: #ffffff;
-    padding: 20px 0;
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    border-bottom: 1px solid #e2e8f0;
-  }
-
-  /* --- FLOATING SEARCH BAR --- */
-  .floating-search-bar {
-    display: flex;
-    align-items: center;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 50px;
-    padding: 6px;
-    box-shadow: var(--shadow-soft);
-    max-width: 750px;
-    margin: 0 auto;
-    transition: all 0.3s ease;
-    position: relative;
-  }
-
-  .floating-search-bar:focus-within {
-    box-shadow: var(--shadow-hover);
-    border-color: var(--primary);
-    transform: translateY(-2px);
-  }
-
-  .search-section {
-    flex: 1;
-    position: relative;
-    padding: 0 20px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-
+  /* ... (Keep your existing CSS styles exactly as they are) ... */
+  /* For brevity, I am assuming the CSS is unchanged from your code */
+  :root { --primary: #2563eb; --primary-hover: #1d4ed8; --accent: #f59e0b; --bg-page: #f8fafc; --text-main: #0f172a; --text-sub: #64748b; --shadow-soft: 0 10px 40px -10px rgba(0,0,0,0.08); --shadow-hover: 0 20px 40px -10px rgba(0,0,0,0.15); }
+  body { background-color: var(--bg-page); font-family: 'DM Sans', sans-serif; color: var(--text-main); margin: 0; }
+  .search-header { background: #ffffff; padding: 20px 0; position: sticky; top: 0; z-index: 50; border-bottom: 1px solid #e2e8f0; }
+  .floating-search-bar { display: flex; align-items: center; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 50px; padding: 6px; box-shadow: var(--shadow-soft); max-width: 750px; margin: 0 auto; transition: all 0.3s ease; position: relative; }
+  .floating-search-bar:focus-within { box-shadow: var(--shadow-hover); border-color: var(--primary); transform: translateY(-2px); }
+  .search-section { flex: 1; position: relative; padding: 0 20px; display: flex; flex-direction: column; justify-content: center; }
   .search-section:first-child { padding-left: 25px; }
-
-  .search-label {
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    color: var(--text-sub);
-    margin-bottom: 2px;
-  }
-
-  .search-input {
-    border: none;
-    outline: none;
-    width: 100%;
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text-main);
-    padding: 0;
-    background: transparent;
-  }
-
+  .search-label { font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-sub); margin-bottom: 2px; }
+  .search-input { border: none; outline: none; width: 100%; font-size: 15px; font-weight: 600; color: var(--text-main); padding: 0; background: transparent; }
   .search-input::placeholder { color: #cbd5e1; font-weight: 500; }
-
   .search-divider { width: 1px; height: 30px; background-color: #e2e8f0; }
-
-  .search-btn-round {
-    background: var(--primary);
-    color: white;
-    border: none;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-    margin-left: 10px;
-    flex-shrink: 0;
-  }
+  .search-btn-round { background: var(--primary); color: white; border: none; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; margin-left: 10px; flex-shrink: 0; }
   .search-btn-round:hover { background: var(--primary-hover); transform: scale(1.05); }
-
-  /* --- SUGGESTION DROPDOWN --- */
-  .suggestions-dropdown {
-    position: absolute;
-    top: 120%;
-    left: 0;
-    width: 100%;
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.12);
-    padding: 10px 0;
-    z-index: 1000;
-    border: 1px solid #f1f5f9;
-    max-height: 250px;
-    overflow-y: auto;
-    min-width: 250px;
-  }
-
-  .suggestion-item {
-    padding: 10px 20px;
-    cursor: pointer;
-    font-size: 14px;
-    color: var(--text-main);
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    transition: background 0.2s;
-  }
-
+  .suggestions-dropdown { position: absolute; top: 120%; left: 0; width: 100%; background: white; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); padding: 10px 0; z-index: 1000; border: 1px solid #f1f5f9; max-height: 250px; overflow-y: auto; min-width: 250px; }
+  .suggestion-item { padding: 10px 20px; cursor: pointer; font-size: 14px; color: var(--text-main); font-weight: 500; display: flex; align-items: center; gap: 10px; transition: background 0.2s; }
   .suggestion-item:hover { background: #eff6ff; color: var(--primary); }
   .suggestion-item i { color: #94a3b8; font-size: 12px; }
-
-  /* --- RESULTS GRID --- */
   .results-container { padding: 40px 20px; max-width: 1200px; margin: 0 auto; }
   .results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 30px; }
-
-  /* --- CARD STYLE --- */
-  .clean-card {
-    background: white; border-radius: 16px; overflow: hidden; transition: all 0.3s ease;
-    cursor: pointer; position: relative; border: 1px solid transparent;
-    display: flex; flex-direction: column;
-  }
+  .clean-card { background: white; border-radius: 16px; overflow: hidden; transition: all 0.3s ease; cursor: pointer; position: relative; border: 1px solid transparent; display: flex; flex-direction: column; }
   .clean-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-hover); }
   .card-image-box { height: 200px; width: 100%; position: relative; overflow: hidden; background: #f1f5f9; border-radius: 16px; }
   .card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
@@ -161,11 +38,9 @@ const styles = `
   .card-info { padding: 15px 5px; flex-grow: 1; display: flex; flex-direction: column; }
   .card-title { font-size: 17px; font-weight: 700; color: var(--text-main); margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .card-sub { font-size: 14px; color: var(--text-sub); display: flex; align-items: center; gap: 5px; margin-bottom: 15px; }
-  
   .card-actions-row { display: flex; gap: 10px; margin-top: auto; }
   .action-chip { flex: 1; border: 1px solid #e2e8f0; background: white; color: var(--text-sub); padding: 8px; border-radius: 8px; font-size: 12px; font-weight: 600; text-align: center; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 5px; }
   .action-chip:hover { border-color: var(--primary); color: var(--primary); background: #eff6ff; }
-
   @media (max-width: 768px) {
     .floating-search-bar { flex-direction: column; border-radius: 20px; padding: 15px; gap: 10px; }
     .search-divider { width: 100%; height: 1px; }
@@ -177,19 +52,20 @@ const styles = `
 
 // Simple Debounce
 const useDebounce = (callback, delay) => {
-    const timer = useRef(null);
-    return useCallback((...args) => {
-        if (timer.current) clearTimeout(timer.current);
-        timer.current = setTimeout(() => callback(...args), delay);
-    }, [callback, delay]);
+  const timer = useRef(null);
+  return useCallback((...args) => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => callback(...args), delay);
+  }, [callback, delay]);
 };
 
-// 👇 FIXED: Changed Toaster to OverlayToaster
 const AppToaster = await OverlayToaster.create({ position: Position.TOP });
 const API_BASE = import.meta.env.VITE_BACKEND_URL;
+
 export default function SearchResults() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation(); // Used to trigger save cleanup if needed
 
   const initialCat = searchParams.get("category") || "";
   const initialCity = searchParams.get("city") || "";
@@ -215,16 +91,19 @@ export default function SearchResults() {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  // New Ref to track if we just restored from cache (to prevent duplicate fetches)
+  const isRestored = useRef(false);
+
   // --- 1. FETCH MASTER CATEGORY LIST ---
   useEffect(() => {
     const fetchCats = async () => {
-        try {
-            const res = await fetch(`${API_BASE}/category/list/?lang=${lang}`);
-            const json = await res.json();
-            setAllCategories(json.data || []);
-        } catch (e) {
-            console.error("Failed to load categories", e);
-        }
+      try {
+        const res = await fetch(`${API_BASE}/category/list/?lang=${lang}`);
+        const json = await res.json();
+        setAllCategories(json.data || []);
+      } catch (e) {
+        console.error("Failed to load categories", e);
+      }
     };
     fetchCats();
   }, [lang]);
@@ -236,9 +115,9 @@ export default function SearchResults() {
 
     let combinedList = [];
     if (allCategories.length > 0) {
-        allCategories.forEach(cat => {
-            if (cat.name.toLowerCase().includes(lower)) combinedList.push(cat.name);
-        });
+      allCategories.forEach(cat => {
+        if (cat.name.toLowerCase().includes(lower)) combinedList.push(cat.name);
+      });
     }
 
     try {
@@ -246,8 +125,8 @@ export default function SearchResults() {
       const json = await res.json();
       const apiData = json.data || [];
       apiData.forEach((item) => {
-          const shopName = item.shop?.shop_name || item.shop_name;
-          if (shopName && !combinedList.includes(shopName)) combinedList.push(shopName);
+        const shopName = item.shop?.shop_name || item.shop_name;
+        if (shopName && !combinedList.includes(shopName)) combinedList.push(shopName);
       });
     } catch (e) { console.error(e); }
 
@@ -276,14 +155,47 @@ export default function SearchResults() {
       );
       const json = await res.json();
       const newData = json.data || [];
+
       if (isInitial) setResults(newData);
       else setResults(prev => [...prev, ...newData]);
+
       setHasMore(json.has_more || false);
     } catch (error) { console.error(error); }
     finally { if (isInitial) setLoading(false); else setLoadingMore(false); }
   };
 
+  // --- 4. INITIAL LOAD WITH RESTORE CAPABILITY ---
   useEffect(() => {
+    // Check session storage for saved state
+    const savedState = sessionStorage.getItem("shopSearchResults");
+
+    if (savedState) {
+        const parsed = JSON.parse(savedState);
+
+        // Only restore if the search params match (e.g. user didn't change URL manually)
+        if (parsed.cat === initialCat && parsed.city === initialCity) {
+            console.log("Restoring previous search state...");
+            setResults(parsed.results);
+            setPage(parsed.page);
+            setHasMore(parsed.hasMore);
+            setCatInput(parsed.catInput);
+            setCityInput(parsed.cityInput);
+
+            isRestored.current = true; // Mark as restored to skip page-change fetch
+
+            // Restore scroll position after a slight delay to allow rendering
+            setTimeout(() => {
+                window.scrollTo(0, parsed.scrollPos);
+                isRestored.current = false; // Reset after scroll is done
+                // Optional: Clear storage so refresh works normally
+                sessionStorage.removeItem("shopSearchResults");
+            }, 100);
+
+            return; // EXIT HERE -> Do not fetch from API
+        }
+    }
+
+    // Normal behavior if no saved state
     setCatInput(initialCat);
     setCityInput(initialCity);
     setPage(1);
@@ -291,7 +203,13 @@ export default function SearchResults() {
     // eslint-disable-next-line
   }, [initialCat, initialCity, lang]);
 
-  useEffect(() => { if (page > 1) fetchResults(page, false); }, [page]);
+  // --- 5. PAGINATION EFFECT ---
+  useEffect(() => {
+      // If we just restored data (isRestored.current is true), do NOT fetch again.
+      if (page > 1 && !isRestored.current) {
+          fetchResults(page, false);
+      }
+  }, [page]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -307,38 +225,58 @@ export default function SearchResults() {
   const handleSearch = (c = catInput, ct = cityInput) => {
     setShowCatDrop(false);
     setShowCityDrop(false);
+    // Clear old session storage on new search
+    sessionStorage.removeItem("shopSearchResults");
     if (c && ct) {
       navigate(`/results?category=${encodeURIComponent(c)}&city=${encodeURIComponent(ct)}`);
     } else {
-        AppToaster.show({ message: "Please enter both category and city!", intent: "warning" });
+      AppToaster.show({ message: "Please enter both category and city!", intent: "warning" });
     }
   };
 
-  // --- FIXED ACTION HANDLER (CALL/CHAT/MAP) ---
+  // --- NEW: HANDLE CARD CLICK (SAVE STATE) ---
+  const handleCardClick = (s) => {
+      // Save current state before navigating away
+      const stateToSave = {
+          results: results,
+          page: page,
+          hasMore: hasMore,
+          catInput: catInput,
+          cityInput: cityInput,
+          cat: initialCat,
+          city: initialCity,
+          scrollPos: window.scrollY // Save Scroll Y
+      };
+      sessionStorage.setItem("shopSearchResults", JSON.stringify(stateToSave));
+
+      // Navigate
+      navigate("/shop", { state: { shop: s } });
+  };
+
   const handleAction = (e, type, value) => {
     e.stopPropagation();
     e.preventDefault();
 
     if (!value) {
-        AppToaster.show({ message: "Contact info not available.", intent: "danger", icon: "error" });
-        return;
+      AppToaster.show({ message: "Contact info not available.", intent: "danger", icon: "error" });
+      return;
     }
 
     try {
-        if (type === 'call') {
-            window.location.href = `tel:${value}`;
-        }
-        else if (type === 'chat') {
-            const cleanNum = value.toString().replace(/\D/g,'');
-            const finalNum = cleanNum.length === 10 ? `91${cleanNum}` : cleanNum;
-            window.open(`https://wa.me/${finalNum}`, '_blank');
-        }
-        else if (type === 'map') {
-            // FIXED URL
-            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value)}`, '_blank');
-        }
+      if (type === 'call') {
+        window.location.href = `tel:${value}`;
+      }
+      else if (type === 'chat') {
+        const cleanNum = value.toString().replace(/\D/g,'');
+        const finalNum = cleanNum.length === 10 ? `91${cleanNum}` : cleanNum;
+        window.open(`https://wa.me/${finalNum}`, '_blank');
+      }
+      else if (type === 'map') {
+        // Fixed Map URL syntax
+        window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value)}`, '_blank');
+      }
     } catch(err) {
-        console.error("Action failed", err);
+      console.error("Action failed", err);
     }
   };
 
@@ -438,10 +376,10 @@ export default function SearchResults() {
             <>
                 {results.length === 0 ? (
                 <NonIdealState
-                    icon="search"
-                    title="No Results Found"
-                    description="We couldn't find anything matching your search."
-                    action={<Button intent="primary" onClick={() => navigate('/')}>Go Home</Button>}
+                  icon="search"
+                  title="No Results Found"
+                  description="We couldn't find anything matching your search."
+                  action={<Button intent="primary" onClick={() => navigate('/')}>Go Home</Button>}
                 />
                 ) : (
                 <div className="results-grid">
@@ -452,9 +390,7 @@ export default function SearchResults() {
                         ? `http://127.0.0.1:8000/${s.main_image}`
                         : (s.media?.[0]?.path ? `http://127.0.0.1:8000/${s.media[0].path}` : "https://via.placeholder.com/400x300");
 
-                        // --- DATA FOR ACTIONS ---
                         const contactNum = s.mobile || s.phone_number;
-                        // Prioritize Full Address -> City -> Search City
                         const mapLocation = s.address ? `${s.shop_name}, ${s.address}` : (s.city ? `${s.shop_name}, ${s.city}` : cityInput);
 
                         return (
@@ -464,7 +400,8 @@ export default function SearchResults() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.05 }}
-                            onClick={() => navigate("/shop", { state: { shop: s } })}
+                            // 👇 UPDATED CLICK HANDLER
+                            onClick={() => handleCardClick(s)}
                         >
                             <div className="card-image-box">
                             <img src={img} alt={s.shop_name} className="card-img" />
@@ -480,7 +417,6 @@ export default function SearchResults() {
                                 {s.address || cityInput}
                             </div>
 
-                            {/* ACTION BUTTONS */}
                             <div className="card-actions-row">
                                 <div className="action-chip" onClick={(e) => handleAction(e, 'call', contactNum)}>
                                     <Icon icon="phone" size={12} /> Call

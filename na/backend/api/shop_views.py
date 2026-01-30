@@ -21,7 +21,7 @@ r = redis.Redis(host="localhost", port=6379, decode_responses=True)
 # ===============================
 # ADD SHOP VIEW (REAL TIME)
 # ===============================
-@router.post("/shop/view/{shop_id}/")
+@router.post("/shop/view/{shop_id}/", operation_id="addshopview")
 def shop_view(shop_id: str, request: Request):
 
     now = datetime.utcnow()
@@ -73,7 +73,7 @@ def shop_view(shop_id: str, request: Request):
 # ===============================
 # GET CURRENT MONTH VIEWS
 # ===============================
-@router.get("/shop/views/{shop_id}/")
+@router.get("/shop/views/{shop_id}/", operation_id="getshopviews")
 def get_shop_views(shop_id: str):
 
     now = datetime.utcnow()
