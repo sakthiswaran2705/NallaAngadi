@@ -249,7 +249,7 @@ export default function Dashboard() {
   const fetchCity = async (text) => {
     if (!text?.trim()) return setCitySug([]);
     try {
-      const res = await fetch(`${BACKEND_URL}/city/search?city_name=${encodeURIComponent(text)}&lang=${lang}`);
+      const res = await fetch(`${BACKEND_URL}/city/search/?city_name=${encodeURIComponent(text)}&lang=${lang}`);
       const json = await res.json();
       if (json?.status === "success") setCitySug(json.data || []);
     } catch (e) {}
