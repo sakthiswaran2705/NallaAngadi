@@ -64,17 +64,31 @@ const API_BASE = import.meta.env.VITE_BACKEND_URL;
 const resolveImageUrl = (path) => {
   if (!path) return "https://via.placeholder.com/400x300";
 
-  // If backend already sent full URL (http/https)
-  if (path.startsWith("http://") || path.startsWith("https://")) {
-    // Force HTTPS to avoid mixed content
+  // remove old cached localhost URLs
+  if (path.includes("127.0.0.1")) {
+    const clean = path.split("/media/")[1];
+    return `${API_BASE}/media/${clean}`;
+  }
+
+  if (path.startsWith("http://")) {
     return path.replace("http://", "https://");
   }
 
-  // If backend sent relative path
+  if (path.startsWith("https://")) {
+    return path;
+  }
+
   return `${API_BASE}/${path.replace(/^\/+/, "")}`;
 };
 
+
 export default function SearchResults() {
+  useEffect(() => {
+    sessionStorage.removeItem("shopSearchResults");
+  }, []);
+
+  
+  
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation(); // Used to trigger save cleanup if needed
@@ -398,9 +412,15 @@ export default function SearchResults() {
                     <AnimatePresence>
                     {results.map((item, idx) => {
                         const s = item.shop || item.shop?.shop || item;
-                        const img = resolveImageUrl(
-                          s.main_image || s.media?.[0]?.path
-                        );
+                        const rawImage =
+                          s.main_image ||
+                          s.image ||
+                          s.thumbnail ||
+                          s.media?.[0]?.path ||
+                          "";
+                        
+                        const img = resolveImageUrl(rawImage);
+                        
 
 
                         const contactNum = s.mobile || s.phone_number;
