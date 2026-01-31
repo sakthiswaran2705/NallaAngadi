@@ -23,7 +23,7 @@ from notifications_setting import router as notification_settings_router
 from shop_views import router as shop_views_router
 #from account_create_auto import router as account_router
 #from register_automatic import  router as register_auto
-from starlette.middleware.proxy_headers import ProxyHeadersMiddleware
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
@@ -38,7 +38,7 @@ app = FastAPI(
     docs_url="/api/",
     redoc_url=None
 )
-app.add_middleware(ProxyHeadersMiddleware)
+
 
 # -------------------- STATIC FILES --------------------
 app.mount("/media", StaticFiles(directory="media"), name="media")
