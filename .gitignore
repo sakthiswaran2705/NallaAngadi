@@ -18,3 +18,5 @@ dist/
 .DS_Store
 
 .idea/
+
+na/backend/api/media/shop/*
