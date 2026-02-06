@@ -22,7 +22,10 @@ from otp_mail import router as otp_router
 from notifications_setting import router as notification_settings_router
 from shop_views import router as shop_views_router
 #from account_create_auto import router as account_router
-#from register_automatic import  router as register_auto
+from contact_save import  router as contact_router
+import threading
+import time
+from plan_expire_action import process_expired_plans
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -54,6 +57,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+
+
+
+
 # -------------------- ROUTERS --------------------
 app.include_router(search_router)
 app.include_router(owner_router)
@@ -62,7 +70,7 @@ app.include_router(slideshow_router)
 app.include_router(offer_router)
 app.include_router(every_shop)
 #app.include_router(translate_router)
-#app.include_router(city)
+app.include_router(contact_router)
 app.include_router(jobs_router)
 app.include_router(payment_router)
 app.include_router(uravugal_router)
@@ -74,3 +82,30 @@ app.include_router(get_top)
 @app.get("/")
 def root():
     return {"message": "Multiple APIs running!"}
+
+
+# plan expire
+def expiry_background_worker():
+    """
+    Background job:
+    checks expired plans periodically
+    """
+    while True:
+        try:
+            print(" Checking expired plans...")
+            process_expired_plans()
+        except Exception as e:
+            print(" Expiry worker error:", e)
+
+        #time.sleep(60)  #every 1 minute
+        time.sleep(300)    #every 5 minutes
+
+
+@app.on_event("startup")
+def start_expiry_worker():
+    print(" Starting plan expiry background worker")
+    thread = threading.Thread(
+        target=expiry_background_worker,
+        daemon=True
+    )
+    thread.start()

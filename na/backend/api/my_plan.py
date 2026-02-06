@@ -9,12 +9,18 @@ col_payments = db["payments"]
 
 @router.get("/my-plan/")
 def my_plan(user_id: str = Depends(verify_token)):
+    now = datetime.utcnow()
+
     payment = col_payments.find_one(
         {
             "user_id": user_id,
-            "status": "success"
+            "expiry_date": {"$gt": now},
+            "$or": [
+                {"status": "success"},  # normal payment
+                {"autopay": True, "subscription_status": "active"}  # autopay
+            ]
         },
-        sort=[("created_at", -1)]
+        sort=[("updated_at", -1)]
     )
 
     if not payment:
@@ -23,16 +29,10 @@ def my_plan(user_id: str = Depends(verify_token)):
             "subscribed": False
         }
 
-    # OPTIONAL: expiry check
-    if payment.get("expiry_date"):
-        if payment["expiry_date"] < datetime.utcnow():
-            return {
-                "status": True,
-                "subscribed": False
-            }
-
     return {
         "status": True,
         "subscribed": True,
-        "plan": payment.get("plan_name")  # silver / gold / platinum
+        "plan": payment.get("plan_name"),
+        "expiry_date": payment.get("expiry_date"),
+        "autopay": payment.get("autopay", False)
     }

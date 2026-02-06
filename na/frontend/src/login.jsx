@@ -75,7 +75,8 @@ export default function Auth() {
   // --- Validators ---
   const validateEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
   const validatePhone = (v) => /^\d{10,}$/.test(v);
-  const validatePassword = (v) => /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).{6,}$/.test(v);
+  //const validatePassword = (v) => /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).{6,}$/.test(v);
+  const validatePassword = (v) => /^.{6,}$/.test(v);
 
   // ================= HANDLERS =================
 

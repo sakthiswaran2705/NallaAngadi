@@ -27,7 +27,10 @@ const TXT = {
   cancel: { en: "Cancel", ta: "ரத்து" },
   delete: { en: "Delete", ta: "நீக்கு" },
   loginReq: { en: "Login Required", ta: "உள்நுழைவு தேவை" },
-  loginMsg: { en: "Please login to perform this action.", ta: "தயவுசெய்து உள்நுழையவும்." }
+  loginMsg: { en: "Please login to perform this action.", ta: "தயவுசெய்து உள்நுழையவும்." },
+  // ⭐ Added Description Translations
+  about: { en: "About this Shop", ta: "கடை பற்றி" },
+  noDesc: { en: "No description available.", ta: "விளக்கம் இல்லை." }
 };
 
 // ==========================================================
@@ -497,6 +500,16 @@ function ShopDetails() {
                     ) : <div className="p-5 text-center text-muted">No Images Available</div>}
                 </div>
 
+                {/* ⭐ NEW: DESCRIPTION CARD */}
+                <div className="content-card p-4">
+                    <h5 className="fw-bold text-dark mb-3">{t("about")}</h5>
+                    <p className="text-secondary mb-0" style={{ whiteSpace: 'pre-line', lineHeight: '1.6' }}>
+                        {getField("description") && getField("description") !== "N/A"
+                            ? getField("description")
+                            : t("noDesc")}
+                    </p>
+                </div>
+
                 {/* REVIEWS */}
                 <div className="content-card p-4">
                     <h3 style={{fontWeight:800, color:'#1e293b', marginBottom:20}}>{t("reviews")} <span className="text-muted" style={{fontSize:'0.6em', verticalAlign:'middle'}}>({reviews.length})</span></h3>
@@ -574,7 +587,7 @@ function ShopDetails() {
                     <div className="contact-row"><Icon icon="envelope" className="contact-icon"/> {getField("email") === "N/A" ? "No Email" : getField("email")}</div>
                     <div className="contact-row"><Icon icon="geolocation" className="contact-icon"/> {getField("address")}</div>
 
-                    {/* ⭐ LANDMARK SECTION ADDED HERE */}
+                    {/* LANDMARK */}
                     {getField("landmark") && getField("landmark") !== "N/A" && (
                         <div className="contact-row">
                             <Icon icon="flag" className="contact-icon"/>

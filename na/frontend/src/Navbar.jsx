@@ -168,6 +168,11 @@ function Navbar() {
     }
   };
 
+  // --- NEW: WHATSAPP CALL HANDLER ---
+  const handleCallClick = () => {
+    window.open("https://wa.me/+917868998544", "_blank");
+  };
+
   const changeLang = (lang) => {
     i18n.changeLanguage(lang);
     localStorage.setItem("LANG", lang);
@@ -255,8 +260,8 @@ function Navbar() {
 
         /* --- MAIN NAVBAR --- */
         .app-navbar {
-          background: ${ (!isHomePage || isScrolled) ? '#ffffff' : 'transparent' };
-          box-shadow: ${ (!isHomePage || isScrolled) ? '0 2px 10px rgba(0,0,0,0.05)' : 'none' };
+          background: ${ (isHomePage && !isScrolled) ? 'linear-gradient(to bottom, #cfe8ff 0%, #e3f2fd 35%, transparent 100%)' : '#ffffff' } !important;
+          box-shadow: ${ (isHomePage && !isScrolled) ? 'none' : '0 2px 10px rgba(0,0,0,0.05)' };
           height: 80px;
           padding: 0 40px; 
           transition: background 0.3s ease, box-shadow 0.3s ease;
@@ -265,7 +270,7 @@ function Navbar() {
           z-index: 1000;
         }
 
-        /* --- LOGO --- */
+         /* --- LOGO --- */
         .logo-section {
           cursor: pointer;
           display: flex;
@@ -274,7 +279,7 @@ function Navbar() {
           transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         .logo-section:hover { transform: scale(1.03); }
-        .logo-img { height: 60px; width: auto; object-fit: contain; }
+        .logo-img { height: 70px; width: auto; object-fit: contain; }
         .text-logo { font-family: 'Inter', sans-serif; font-size: 24px; font-weight: 800; color: #1e3a8a; white-space: nowrap; }
 
         /* --- NOTIFICATIONS --- */
@@ -297,7 +302,7 @@ function Navbar() {
         .nav-link-container { display: flex; gap: 25px; align-items: center; Font-Family:sans-serif, Noto Sans Tamil;}
         .nav-item-custom { cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5px; color: #555; transition: all 0.2s; }
         .nav-item-custom:hover { color: #000; transform: translateY(-2px); }
-        .nav-item-custom.active-nav { color: #eab308; }
+        .nav-item-custom.active-nav { color: #0d6efd; /* CHANGED FROM YELLOW TO BLUE */ }
         .nav-icon { font-size: 18px; margin-bottom: 2px; }
         .nav-label { font-size: 10px; font-weight: 700; text-transform: uppercase; }
 
@@ -365,6 +370,13 @@ function Navbar() {
             <NavItem icon="🎁" labelKey="Offers" onClick={() => navigate('/offers')} isActive={location.pathname.startsWith("/offers")} />
             <NavItem icon="💼" labelKey="Jobs" onClick={() => navGo("/jobs")} isActive={location.pathname === "/jobs"} />
             <NavItem icon="💰" labelKey="Plan" onClick={() => navGo("/plan")} isActive={location.pathname === "/plan"} />
+            {/* CALL BUTTON ADDED HERE */}
+            <NavItem
+                icon="📞"
+                labelKey={lang === "ta" ? "தொடர்புக்கு" : "Call"}
+                onClick={handleCallClick}
+                isActive={false}
+              />
           </div>
 
           {/* 3. UTILITIES */}
