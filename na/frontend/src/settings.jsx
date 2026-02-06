@@ -1,35 +1,25 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { motion, AnimatePresence } from "framer-motion"; // Import Framer Motion
+import { Icon } from "@blueprintjs/core"; // Import Blueprint Icon
 import Navbar from "./Navbar.jsx";
 
 const API_BASE = import.meta.env.VITE_BACKEND_URL;
 
-// --- Simple SVG Icons ---
+// --- Simple SVG Icons for the Settings UI ---
 const Icons = {
-  Lock: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-    </svg>
-  ),
-  Bell: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-      <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-    </svg>
-  ),
-  CreditCard: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
-      <line x1="1" y1="10" x2="23" y2="10"></line>
-    </svg>
-  ),
-  ChevronRight: () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="9 18 15 12 9 6"></polyline>
-    </svg>
-  )
+  Lock: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>,
+  Bell: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>,
+  CreditCard: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>,
+  ChevronRight: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>,
+};
+
+// --- Popup Animation Variants (From Pricing Page) ---
+const popupVariants = {
+    initial: { opacity: 0, y: -50, scale: 0.9 },
+    animate: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 300, damping: 20 } },
+    exit: { opacity: 0, y: -20, scale: 0.9, transition: { duration: 0.2 } }
 };
 
 function Settings() {
@@ -39,6 +29,9 @@ function Settings() {
 
   // ---------------- STATE ----------------
   const [activeTab, setActiveTab] = useState("security");
+
+  // Popup State (From Pricing Page)
+  const [popup, setPopup] = useState(null);
 
   // Security State
   const [oldPassword, setOldPassword] = useState("");
@@ -50,6 +43,13 @@ function Settings() {
   const [pushNotif, setPushNotif] = useState(false);
   const [loadingNotif, setLoadingNotif] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+
+  // ---------------- HELPERS ----------------
+  // Helper to trigger the popup
+  const showPopup = (type, message, title = "") => {
+      setPopup({ type, message, title });
+      setTimeout(() => setPopup(null), 3000);
+  };
 
   // ---------------- EFFECTS ----------------
   useEffect(() => {
@@ -69,8 +69,6 @@ function Settings() {
             setEmailNotif(result.data.email);
             setPushNotif(result.data.push);
           }
-        } else {
-          console.error("Failed to fetch settings");
         }
       } catch (error) {
         console.error("Network error fetching settings", error);
@@ -85,7 +83,7 @@ function Settings() {
   // ---------------- HANDLERS ----------------
   const handleChangePassword = async () => {
     if (!oldPassword || !newPassword) {
-      alert(t("Please fill in all password fields."));
+      showPopup("warning", t("Please fill in all password fields."), "Error");
       return;
     }
 
@@ -106,14 +104,14 @@ function Settings() {
       const data = await res.json();
 
       if (res.ok) {
-        alert(t("Success! Your password has been updated."));
+        showPopup("success", t("Success! Your password has been updated."), "Success");
         setOldPassword("");
         setNewPassword("");
       } else {
-        alert(data.message || t("Failed to update password."));
+        showPopup("danger", data.message || t("Failed to update password."), "Error");
       }
     } catch (err) {
-      alert(t("Server error. Please try again later."));
+      showPopup("danger", t("Server error. Please try again later."), "Error");
     } finally {
       setLoadingPwd(false);
     }
@@ -134,15 +132,13 @@ function Settings() {
         }),
       });
 
-      const data = await res.json();
-
       if (res.ok) {
-        alert(t("Notification preferences saved successfully."));
+        showPopup("success", t("Notification preferences saved successfully."), "Success");
       } else {
-        alert(t("Failed to save preferences."));
+        showPopup("danger", t("Failed to save preferences."), "Error");
       }
     } catch (err) {
-      alert(t("Server error while saving preferences."));
+      showPopup("danger", t("Server error while saving preferences."), "Error");
     } finally {
       setLoadingNotif(false);
     }
@@ -171,8 +167,54 @@ function Settings() {
     </button>
   );
 
+  // Helper to determine icon based on type
+  const getPopupIcon = (type) => {
+    if (type === 'success') return 'tick-circle';
+    if (type === 'warning') return 'warning-sign';
+    return 'error';
+  };
+
+  // Helper for dynamic colors based on type
+  const getIconStyle = (type) => {
+    const base = { ...styles.toastIcon };
+    if (type === 'success') {
+        return { ...base, background: '#d1fae5', color: '#059669' }; // Green
+    } else if (type === 'warning') {
+        return { ...base, background: '#fef3c7', color: '#d97706' }; // Yellow
+    } else {
+        return { ...base, background: '#fee2e2', color: '#dc2626' }; // Red
+    }
+  };
+
   return (
-      <div style={{ overflowX: "hidden" }}>
+      <div style={{ overflowX: "hidden", fontFamily: "'Inter', sans-serif" }}>
+
+        {/* --- POPUP NOTIFICATION (FRAMER MOTION) --- */}
+        <AnimatePresence>
+            {popup && (
+                <motion.div
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                    variants={popupVariants}
+                    onClick={() => setPopup(null)}
+                    style={styles.toast}
+                >
+                    <div style={getIconStyle(popup.type)}>
+                        <Icon icon={getPopupIcon(popup.type)} iconSize={18} />
+                    </div>
+                    <div>
+                        <h5 style={{ margin: "0 0 4px 0", fontSize: "14px", fontWeight: "bold", color: "#1f2937" }}>
+                            {popup.title}
+                        </h5>
+                        <p style={{ margin: 0, fontSize: "13px", color: "#6b7280" }}>
+                            {popup.message}
+                        </p>
+                    </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+
         {/* FULL WIDTH NAVBAR */}
         <div className="container-fluid px-0">
           <Navbar />
@@ -371,33 +413,44 @@ function Settings() {
           </div>
         </div>
 
-        {/* INTERNAL CSS */}
+        {/* INTERNAL CSS for UI (Animation classes) */}
         <style>{`
-          .hover-bg-light:hover {
-            background-color: #f8f9fa;
-            color: #000;
-          }
-
-          .fade-in-up {
-            animation: fadeInUp 0.3s ease-out forwards;
-          }
-
-          @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-
-          .form-control:focus {
-            box-shadow: none;
-            border: 2px solid #0d6efd;
-            background-color: #fff;
-          }
-
-          body {
-            font-family: "Noto Sans Tamil", system-ui, sans-serif;
-          }
+          .hover-bg-light:hover { background-color: #f8f9fa; color: #000; }
+          .fade-in-up { animation: fadeInUp 0.3s ease-out forwards; }
+          @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+          .form-control:focus { box-shadow: none; border: 2px solid #0d6efd; background-color: #fff; }
         `}</style>
       </div>
   );
 }
+
+// --- STYLES OBJECT (MATCHING PRICING PAGE TOAST) ---
+const styles = {
+    toast: {
+        position: "fixed",
+        top: "24px",
+        right: "24px", // Top right position like standard toasts
+        background: "#fff",
+        padding: "16px 20px",
+        borderRadius: "16px",
+        display: "flex",
+        gap: "16px",
+        boxShadow: "0 10px 40px rgba(0,0,0,0.12)",
+        zIndex: 9999,
+        border: "1px solid #f3f4f6",
+        alignItems: "center",
+        minWidth: "300px",
+        maxWidth: "400px"
+    },
+    toastIcon: {
+        width: "40px",
+        height: "40px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: "12px",
+        flexShrink: 0
+    }
+};
+
 export default Settings;

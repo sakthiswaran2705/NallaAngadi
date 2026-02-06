@@ -6,9 +6,15 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 
 import Navbar from "./Navbar.jsx";
-
 import heroBgImage from "./image_cc786f.jpg";
+
 const API_BASE = import.meta.env.VITE_BACKEND_URL;
+
+// ---------------- UTILS ----------------
+// Unicode-safe normalization for Tamil/English comparison
+const normalizeText = (text) => {
+    return text ? text.toString().normalize("NFC").toLowerCase() : "";
+};
 
 // ---------------- DEBOUNCE HOOK ----------------
 const useDebounce = (callback, delay) => {
@@ -54,12 +60,11 @@ function Val() {
 
     // REF
     const categoriesRef = useRef(null);
-    
+
     // ---------------- STATE VARIABLES ----------------
     const [categoryInput, setCategoryInput] = useState("");
     const [cityInput, setCityInput] = useState(sessionStorage.getItem("CITY_NAME") || "");
 
-    // Store Coordinates for 25km logic
     const [coords, setCoords] = useState({
         lat: sessionStorage.getItem("LAT") || null,
         lon: sessionStorage.getItem("LON") || null
@@ -71,14 +76,15 @@ function Val() {
     const [suggestions, setSuggestions] = useState([]);
     const [citySuggestions, setCitySuggestions] = useState([]);
     const [recentSearch, setRecentSearch] = useState([]);
-    const [showRecent, setShowRecent] = useState(false);
+
+    const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+    const [showCityDropdown, setShowCityDropdown] = useState(false);
 
     const [slides, setSlides] = useState([]);
     const [isSlidesLoading, setIsSlidesLoading] = useState(false);
 
     const [topRatedShops, setTopRatedShops] = useState([]);
-  
-    const [isTopRatedLoading, setIsTopRatedLoading] = useState(false); 
+    const [isTopRatedLoading, setIsTopRatedLoading] = useState(false);
 
     const [popup, setPopup] = useState(null);
 
@@ -118,7 +124,6 @@ function Val() {
         const loadCategories = async () => {
             setIsCatLoading(true);
             try {
-                // Category list usually doesn't change often, could cache this too if needed
                 const res = await fetch(`${API_BASE}/category/list/?lang=${lang}`);
                 const json = await res.json();
                 setCategoryList(json.data || []);
@@ -135,10 +140,9 @@ function Val() {
         if (r) setRecentSearch(JSON.parse(r));
     }, [lang]);
 
-    // ---------------- 3. FETCH TOP RATED (Nearby 25km Logic) - FIXED WITH SESSION STORAGE ----------------
+    // ---------------- 3. FETCH TOP RATED ----------------
     useEffect(() => {
         const loadTopRated = async () => {
-            // Current Params
             const currentParams = {
                 city: cityInput,
                 lat: coords.lat,
@@ -146,27 +150,23 @@ function Val() {
                 lang: lang
             };
 
-            // 👇 CHECK CACHE: Check if we have data for THIS exact location/city
             const cachedData = sessionStorage.getItem("TOP_RATED_DATA");
             const cachedParams = sessionStorage.getItem("TOP_RATED_PARAMS");
 
             if (cachedData && cachedParams) {
                 const parsedParams = JSON.parse(cachedParams);
-                // Check if current City/Location matches what is in Cache
                 if (
                     parsedParams.city === currentParams.city &&
                     parsedParams.lat === currentParams.lat &&
                     parsedParams.lon === currentParams.lon &&
                     parsedParams.lang === currentParams.lang
                 ) {
-                    // ✅ HIT: Use Cached Data immediately (No Loading Spinner)
                     setTopRatedShops(JSON.parse(cachedData));
                     setIsTopRatedLoading(false);
-                    return; // 🛑 Stop here
+                    return;
                 }
             }
 
-            // ⚠️ MISS: If data is not in cache (or location changed), Fetch New Data
             setIsTopRatedLoading(true);
             try {
                 let url = `${API_BASE}/shops/top-rated?lang=${lang}&limit=6`;
@@ -182,8 +182,7 @@ function Val() {
                 if (json.status) {
                     const data = json.data || [];
                     setTopRatedShops(data);
-                    
-                    // ✅ SAVE TO CACHE (So when you come back, it won't load again)
+
                     sessionStorage.setItem("TOP_RATED_DATA", JSON.stringify(data));
                     sessionStorage.setItem("TOP_RATED_PARAMS", JSON.stringify(currentParams));
                 } else {
@@ -199,7 +198,7 @@ function Val() {
         if (cityInput || (coords.lat && coords.lon)) {
             loadTopRated();
         }
-    }, [cityInput, coords, lang]); 
+    }, [cityInput, coords, lang]);
 
     // ---------------- 4. MANUAL GPS LOCATION ----------------
     const getCurrentCity = () => {
@@ -223,10 +222,6 @@ function Val() {
                     if (city) {
                         setCityInput(city);
                         sessionStorage.setItem("CITY_NAME", city);
-                        
-                        // Force Update Cache Logic: Location changed, so we want new data
-                        // The useEffect will detect the change in 'cityInput' and fetch new data automatically.
-                        
                         showPopup("success", `${city} (25km Radius Set)`, "Location Updated");
                     }
                 } catch (err) {
@@ -243,12 +238,12 @@ function Val() {
         if (!value.trim()) { setSuggestions([]); return; }
 
         let list = [];
-        const lowerValue = value.toLowerCase();
+        const searchStr = normalizeText(value);
 
         // 1. Search Local Category List first
         if (categoryList.length > 0) {
             categoryList.forEach(cat => {
-                if (cat.name.toLowerCase().includes(lowerValue)) {
+                if (normalizeText(cat.name).includes(searchStr)) {
                     list.push(cat.name);
                 }
             });
@@ -262,10 +257,10 @@ function Val() {
 
             data.forEach((item) => {
                 const shopName = item.shop?.shop_name || item.shop_name;
-                if (shopName?.toLowerCase().includes(lowerValue)) list.push(shopName);
+                if (normalizeText(shopName).includes(searchStr)) list.push(shopName);
 
                 item.categories?.forEach((c) => {
-                    if (c.name?.toLowerCase().includes(lowerValue)) list.push(c.name);
+                    if (normalizeText(c.name).includes(searchStr)) list.push(c.name);
                 });
             });
 
@@ -279,10 +274,16 @@ function Val() {
 
     const fetchCitySuggestions = async (value) => {
         if (value.trim().length < 2) { setCitySuggestions([]); return; }
+        const searchStr = normalizeText(value);
+
         try {
             const res = await fetch(`${API_BASE}/city/search/?city_name=${encodeURIComponent(value)}&lang=${lang}`);
             const json = await res.json();
-            const list = (json.data || []).map((c) => c.city_name).filter((name) => name?.toLowerCase().includes(value.toLowerCase()));
+
+            const list = (json.data || [])
+                .map((c) => c.city_name)
+                .filter((name) => normalizeText(name).includes(searchStr));
+
             setCitySuggestions([...new Set(list)].slice(0, 8));
         } catch (err) { console.error(err); setCitySuggestions([]); }
     };
@@ -298,6 +299,8 @@ function Val() {
         setRecentSearch(arr);
         localStorage.setItem("recentSearch", JSON.stringify(arr));
         sessionStorage.setItem("CITY_NAME", city);
+
+        setShowCategoryDropdown(false);
         navigate(`/results?category=${encodeURIComponent(category)}&city=${encodeURIComponent(city)}`);
     };
 
@@ -319,6 +322,7 @@ function Val() {
         const fetchSlides = async () => {
             setIsSlidesLoading(true);
             try {
+                // Hardcoded to 'thanjavur' as per logic, or use cityInput dynamically
                 const res = await fetch(`${API_BASE}/offers/${encodeURIComponent('thanjavur')}/?lang=${lang}`, { signal: controller.signal });
                 const json = await res.json();
                 if (json.status) {
@@ -457,7 +461,9 @@ function Val() {
                     padding: 120px 20px 80px; margin-top: -60px;
                 }
                 .hero-bg {
-                    position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+                    position: fixed; 
+                    top: 80px; /* MODIFIED: Moved down */
+                    left: 0; width: 100%; height: 100vh;
                     background-image: url('${heroBgImage}');
                     background-size: cover; background-position: center;
                     z-index: -2; filter: blur(8px) brightness(0.9); transform: scale(1.05);
@@ -518,9 +524,13 @@ function Val() {
                 .cat-icon-placeholder { width: 55px; height: 55px; border-radius: 50%; background: linear-gradient(135deg, #e0f2fe, #bae6fd); color: var(--primary-dark); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; margin-bottom: 12px; }
                 .cat-name { font-size: 13px; font-weight: 700; color: #475569; text-align: center; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; padding: 0 5px; font-family: 'Gaev Sans', 'Noto Sans Tamil', sans-serif; }
 
-                /* RESTORED SLIDESHOW STYLES */
+                /* SLIDESHOW STYLES (MODIFIED HEIGHT) */
                 .slideshow-wrapper { max-width: 1000px; margin: 0 auto 60px auto; }
-                .modern-slideshow-container { width: 100%; height: 400px; border-radius: 30px; overflow: hidden; overflow: hidden; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); background: #0f172a; }
+                .modern-slideshow-container { 
+                    width: 100%; 
+                    height: 520px; /* MODIFIED: Increased Height */
+                    border-radius: 30px; overflow: hidden; overflow: hidden; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); background: #0f172a; 
+                }
                 .slide-media { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; cursor: pointer; object-fit: cover; display: block; }
                 .modern-slideshow-container:hover .slide-media { transform: scale(1.05); }
                 .slide-cta { position: absolute; bottom: 30px; left: 30px; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); color: var(--text-dark); padding: 12px 24px; border-radius: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); transition: all 0.3s; min-width: 150px; }
@@ -605,29 +615,35 @@ function Val() {
                             large
                             leftIcon="search"
                             autoComplete="off"
-                            onFocus={() => setShowRecent(true)}
+                            onBlur={() => setTimeout(() => setShowCategoryDropdown(false), 200)}
+                            onFocus={() => setShowCategoryDropdown(true)}
                             onChange={(e) => {
                                 setCategoryInput(e.target.value);
                                 debouncedCat(e.target.value);
-                                setShowRecent(true);
+                                setShowCategoryDropdown(true);
                             }}
                         />
                         <AnimatePresence>
-                            {(showRecent || suggestions.length > 0) && (
+                            {showCategoryDropdown && (suggestions.length > 0 || recentSearch.length > 0) && (
                                 <motion.div
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0 }}
                                     className="suggestions-box"
                                 >
-                                    {showRecent && !categoryInput && recentSearch.length > 0 && (
+                                    {/* Recent Search Section */}
+                                    {!categoryInput && recentSearch.length > 0 && (
                                         <>
                                             <div style={{padding:'10px 24px', fontSize:12, color:'#94a3b8', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.5px'}}>
                                                 {t("recent searches")}
                                             </div>
                                             {recentSearch.map((item, index) => (
                                                 <div key={index} className="suggestion-item"
-                                                     onClick={() => { setCategoryInput(item); setShowRecent(false); setSuggestions([]); }}>
+                                                     onClick={() => {
+                                                         setCategoryInput(item);
+                                                         setShowCategoryDropdown(false);
+                                                         setSuggestions([]);
+                                                     }}>
                                                     <i className="bp4-icon bp4-icon-history"></i> {item}
                                                 </div>
                                             ))}
@@ -637,9 +653,15 @@ function Val() {
                                             </div>
                                         </>
                                     )}
+
+                                    {/* Search Suggestions Section */}
                                     {suggestions.map((item, index) => (
                                         <div key={index} className="suggestion-item"
-                                             onClick={() => { setCategoryInput(item); setSuggestions([]); setShowRecent(false); }}>
+                                             onClick={() => {
+                                                 setCategoryInput(item);
+                                                 setSuggestions([]);
+                                                 setShowCategoryDropdown(false);
+                                             }}>
                                             <i className="bp4-icon bp4-icon-search" style={{color:'var(--primary-dark)'}}></i> {item}
                                         </div>
                                     ))}
@@ -657,13 +679,16 @@ function Val() {
                             leftIcon="map-marker"
                             autoComplete="off"
                             rightElement={<Button minimal icon="locate" onClick={getCurrentCity} />}
+                            onBlur={() => setTimeout(() => setShowCityDropdown(false), 200)}
+                            onFocus={() => setShowCityDropdown(true)}
                             onChange={(e) => {
                                 setCityInput(e.target.value);
                                 sessionStorage.setItem("CITY_NAME", e.target.value);
                                 debouncedCity(e.target.value);
+                                setShowCityDropdown(true);
                             }}
                         />
-                        {citySuggestions.length > 0 && (
+                        {showCityDropdown && citySuggestions.length > 0 && (
                             <motion.div
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
@@ -674,6 +699,7 @@ function Val() {
                                          onClick={() => {
                                              setCityInput(item);
                                              sessionStorage.setItem("CITY_NAME", item);
+                                             setShowCityDropdown(false);
                                              setCitySuggestions([]);
                                          }}>
                                         <i className="bp4-icon bp4-icon-map-marker" style={{color:'#10b981'}}></i> {item}
@@ -784,7 +810,6 @@ function Val() {
                                         key={idx}
                                         className="shop-card"
                                         onClick={() => {
-                                            // 1. Prepare Navigation Data (Basic Partial Data)
                                             const shopData = {
                                                       _id: shop.shop_id,
                                                       shop_name: shop.shop_name,
@@ -803,8 +828,6 @@ function Val() {
                                                 city_name: shop.city
                                             };
 
-                                            // 2. [FIX] POPULATE SESSION STORAGE FOR RELATED SHOPS
-                                            // We save the entire current Top Rated list as "Home Results"
                                             const sessionShops = topRatedShops.map(s => ({
                                                 shop: {
                                                     _id: s.shop_id,
@@ -816,12 +839,9 @@ function Val() {
                                                 city: { city_name: s.city }
                                             }));
 
-                                            // Store in session so ShopDetails can read it
                                             sessionStorage.setItem("HOME_RESULTS", JSON.stringify(sessionShops));
-                                            // Clear old search context to prefer Home Results
                                             sessionStorage.setItem("SEARCH_CONTEXT_SHOPS", JSON.stringify([]));
 
-                                            // 3. Navigate
                                             navigate("/shop", { state: { shop: shopData, city: cityData } });
                                         }}
                                         whileHover={{ y: -5 }}
@@ -882,8 +902,11 @@ function Val() {
                             <a href="/refund" className="footer-link">{t("Cancellation & Refund Policy")}</a>
                         </div>
                         <div className="mt-4 text-muted small">
-                            © {new Date().getFullYear()} nallaangadi.com  All rights reserved.
+                          © {new Date().getFullYear()}
+                          <span className="mx-3 fw-semibold">chola infotech</span>
+                          All rights reserved.
                         </div>
+
                     </div>
                 </footer>
             </div>

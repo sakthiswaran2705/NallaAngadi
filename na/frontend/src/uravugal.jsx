@@ -3,15 +3,17 @@ import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import {
   User, MapPin, Briefcase, Phone, Mail,
-  Heart, Languages, CheckCircle2, ArrowRight, X, Building2
+  Heart, Languages, CheckCircle2, ArrowRight, X, Building2,
+  HeartHandshake
 } from 'lucide-react';
 
-
+// Ensure you have this JSON file or replace with empty array []
 import occupationData from './occupation.json';
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 const UravugalForm = () => {
-  
+
   const [lang, setLang] = useState('en');
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -28,6 +30,10 @@ const UravugalForm = () => {
 
   const initialFormState = {
     name: '', pattapaiyar: '', native_place: '',
+
+
+    marital_status: '',
+
     father_name: '', father_pattapaiyar: '', father_native_place: '',
     mother_name: '', mother_pattapaiyar: '', mother_native_place: '',
     occupation: [],
@@ -43,12 +49,13 @@ const UravugalForm = () => {
   // ------------------------------------
   const translations = {
     en: {
-      title: "Uravugal Form",
-      subtitle: "Enter family details below",
-      langBtn: "Tamil Mode",
+      titleMain: "ROYAL KAVERY | NALLA ANGADI",
+      titleSub: "- URAVUGAL",
+      subtitle: "URAVUGAL FORM",
+      langBtn: "தமிழ்",
       personalInfo: "Personal Information",
-      fatherDetails: "Father's Details",
-      motherDetails: "Mother's Details",
+      fatherDetails: "Father Details",
+      motherDetails: "Mother Details",
       contactWork: "Contact & Work",
       name: "Full Name",
       pattapaiyar: "Pattapaiyar",
@@ -64,12 +71,24 @@ const UravugalForm = () => {
       serverError: "Server Error.",
       successTitle: "Thank You!",
       successMsg: "Details registered successfully.",
-      addAnother: "Add Another"
+      addAnother: "Add Another",
+
+      // ✅ NEW LABELS
+      maritalStatus: "Marital Status",
+      selectMarital: "-- Select Status --",
+      msOptions: {
+        unmarried: "Unmarried",
+        married: "Married",
+        widowed: "Widowed",
+        divorced: "Divorced",
+        ready_for_next_marriage: "Ready for Next Marriage"
+      }
     },
     ta: {
-      title: "உறவுகள் படிவம்",
-      subtitle: "குடும்ப விவரங்களை உள்ளிடவும்",
-      langBtn: "English Mode",
+      titleMain: "ராயல் காவேரி |  நல்ல அங்காடி",
+      titleSub: "- உறவுகள்",
+      subtitle: "உறவுகள் படிவம்",
+      langBtn: "English",
       personalInfo: "தனிப்பட்ட விவரங்கள்",
       fatherDetails: "தந்தையின் விவரங்கள்",
       motherDetails: "தாயின் விவரங்கள்",
@@ -88,13 +107,23 @@ const UravugalForm = () => {
       serverError: "பிழை ஏற்பட்டது.",
       successTitle: "நன்றி!",
       successMsg: "வெற்றிகரமாக பதிவு செய்யப்பட்டது.",
-      addAnother: "மேலும் சேர்க்க"
+      addAnother: "மேலும் சேர்க்க",
+
+      // ✅ NEW LABELS
+      maritalStatus: "திருமண நிலை",
+      selectMarital: "-- நிலையைத் தேர்ந்தெடுக்கவும் --",
+      msOptions: {
+        unmarried: "திருமணமாகாதவர்",
+        married: "திருமணமானவர்",
+        widowed: "விதவை",
+        divorced: "விவாகரத்து பெற்றவர்",
+        ready_for_next_marriage: "மறுமணத்திற்கு தயார்"
+      }
     }
   };
 
   const curT = translations[lang];
 
-  
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -109,8 +138,6 @@ const UravugalForm = () => {
     }));
   };
 
-
-
   const addOccupation = (val) => {
     const trimmedVal = val.trim();
     if (trimmedVal && !formData.occupation.includes(trimmedVal)) {
@@ -119,11 +146,10 @@ const UravugalForm = () => {
         occupation: [...prev.occupation, trimmedVal]
       }));
     }
-    setOccupationSearch(''); // Clear input for next entry
+    setOccupationSearch('');
     setShowOccDropdown(false);
   };
 
-  // 2. Remove Occupation (Clicking 'X')
   const removeOccupation = (occToRemove) => {
     setFormData(prev => ({
       ...prev,
@@ -131,7 +157,6 @@ const UravugalForm = () => {
     }));
   };
 
-  // 3. Handle Enter Key (Add whatever is typed)
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -141,33 +166,32 @@ const UravugalForm = () => {
     }
   };
 
-  // 4. Filter Suggestions
   const filteredOccupations = occupationOptions.filter(occ =>
     occ.toLowerCase().includes(occupationSearch.toLowerCase()) &&
     !formData.occupation.includes(occ)
   );
 
   const handleInputBlur = () => {
-    // Delay hiding to allow click event
     setTimeout(() => setShowOccDropdown(false), 200);
   };
 
- 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-   
     let finalOccupations = [...formData.occupation];
     if (occupationSearch.trim() && !finalOccupations.includes(occupationSearch.trim())) {
         finalOccupations.push(occupationSearch.trim());
     }
 
-    // Validation
     const validationRules = [
         { field: 'name', label: curT.name },
         { field: 'pattapaiyar', label: curT.pattapaiyar },
         { field: 'native_place', label: curT.native },
+
+        // ✅ VALIDATION: Checks if marital status is selected
+        { field: 'marital_status', label: curT.maritalStatus },
+
         { field: 'father_name', label: `${curT.name} (Father)` },
         { field: 'father_pattapaiyar', label: `${curT.pattapaiyar} (Father)` },
         { field: 'father_native_place', label: `${curT.native} (Father)` },
@@ -175,7 +199,6 @@ const UravugalForm = () => {
         { field: 'mother_pattapaiyar', label: `${curT.pattapaiyar} (Mother)` },
         { field: 'mother_native_place', label: `${curT.native} (Mother)` },
         { field: 'contact_number', label: curT.mobile },
-        // Email removed from mandatory validation
     ];
 
     let missingFields = [];
@@ -205,7 +228,6 @@ const UravugalForm = () => {
 
     setLoading(true);
 
-    // Update state visuals
     setFormData(prev => ({ ...prev, occupation: finalOccupations }));
     setOccupationSearch('');
 
@@ -216,7 +238,6 @@ const UravugalForm = () => {
           lang: lang
       };
 
-      
       const response = await axios.post(
         `${BACKEND_URL}/uravugal/add/`,
         payload);
@@ -232,10 +253,10 @@ const UravugalForm = () => {
     }
   };
 
-
   if (isSuccess) {
     return (
-      <div className="d-flex align-items-center justify-content-center min-vh-100 bg-light">
+      <div className="d-flex align-items-center justify-content-center min-vh-100 bg-light"
+           style={{fontFamily: "'Noto Sans Tamil', sans-serif"}}>
         <div className="card shadow-lg border-0 rounded-4 text-center p-5" style={{maxWidth: '500px'}}>
           <div className="mb-4 text-success"><CheckCircle2 size={80} /></div>
           <h2 className="fw-bold text-dark">{curT.successTitle}</h2>
@@ -250,26 +271,47 @@ const UravugalForm = () => {
 
   return (
     <div className="min-vh-100 d-flex justify-content-center align-items-center py-5"
-          style={{ background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)' }}>
+          style={{
+            background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+            fontFamily: "'Noto Sans Tamil', sans-serif" // ✅ FONT APPLIED HERE
+          }}>
 
       <div className="container">
         <div className="row justify-content-center">
           <div className="col-12 col-lg-9">
             <div className="card border-0 shadow-lg rounded-4 overflow-visible">
 
-              <div className="card-header bg-white border-bottom-0 p-4 pb-0 d-flex justify-content-between align-items-center flex-wrap gap-3">
-                <div>
-                  <h3 className="fw-bold text-primary mb-1"><User className="me-2 mb-1" size={28}/>{curT.title}</h3>
-                  <p className="text-muted small mb-0 ms-1">{curT.subtitle}</p>
+              {/* HEADER */}
+              <div className="card-header bg-white border-bottom-0 p-4 pb-2 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div className="d-flex align-items-center">
+                  <div className="d-flex align-items-center justify-content-center bg-primary bg-gradient text-white rounded-3 p-3 shadow-sm me-3" style={{width: '60px', height: '60px'}}>
+                    <User size={30} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <h2 className="fw-bolder mb-0 text-dark" style={{ letterSpacing: '-0.5px', fontSize: '1.5rem', lineHeight: '1.2' }}>
+                      {curT.titleMain} <span className="text-primary">{curT.titleSub}</span>
+                    </h2>
+                    <div className="d-flex align-items-center mt-1">
+                       <div style={{ width: '40px', height: '3px', background: 'linear-gradient(90deg, #0d6efd, transparent)', borderRadius: '2px' }} className="me-2"></div>
+                       <p className="text-secondary small fw-bold mb-0 text-uppercase" style={{ letterSpacing: '1px', fontSize: '0.75rem' }}>
+                         {curT.subtitle}
+                       </p>
+                    </div>
+                  </div>
                 </div>
-                <button type="button" className="btn btn-sm fw-bold rounded-pill px-4 btn-primary" onClick={() => setLang(prev => prev === 'en' ? 'ta' : 'en')}>
-                  <Languages size={16} className="me-2"/>{curT.langBtn}
+
+                <button type="button"
+                  className="btn btn-outline-primary fw-bold rounded-pill px-4 shadow-sm d-flex align-items-center transition-all"
+                  onClick={() => setLang(prev => prev === 'en' ? 'ta' : 'en')}
+                  style={{borderWidth: '2px'}}>
+                  <Languages size={18} className="me-2"/>
+                  {curT.langBtn}
                 </button>
               </div>
 
               <div className="card-body p-4 p-md-5">
                 {error && (
-                    <div className="alert alert-danger rounded-3 d-flex align-items-center mb-4">
+                    <div className="alert alert-danger rounded-3 d-flex align-items-center mb-4 border-0 shadow-sm bg-danger bg-opacity-10 text-danger fw-bold">
                         <span className="me-2">⚠️</span> {error}
                     </div>
                 )}
@@ -277,8 +319,11 @@ const UravugalForm = () => {
                 <form onSubmit={handleSubmit}>
 
                   {/* 1. PERSONAL DETAILS */}
-                  <h6 className="text-uppercase text-secondary fw-bold mb-3 border-bottom pb-2">{curT.personalInfo}</h6>
-                  <div className="row g-3 mb-4">
+                  <h6 className="text-uppercase text-secondary fw-bold mb-3 d-flex align-items-center">
+                    <span className="bg-primary rounded-circle d-inline-block me-2" style={{width: '8px', height:'8px'}}></span>
+                    {curT.personalInfo}
+                  </h6>
+                  <div className="row g-3 mb-5">
                     <div className="col-12">
                       <BootstrapInput label={curT.name} name="name" value={formData.name} onChange={handleChange} required icon={<User size={18}/>} />
                     </div>
@@ -288,11 +333,33 @@ const UravugalForm = () => {
                     <div className="col-md-6">
                       <BootstrapInput label={curT.native} name="native_place" value={formData.native_place} onChange={handleChange} required icon={<MapPin size={18}/>} />
                     </div>
+
+                    {/* ✅ COMPULSORY MARITAL STATUS */}
+                    <div className="col-md-6">
+                        <BootstrapSelect
+                            label={curT.maritalStatus}
+                            name="marital_status"
+                            value={formData.marital_status}
+                            onChange={handleChange}
+                            required={true}
+                            icon={<HeartHandshake size={18}/>}
+                        >
+                            <option value="" disabled>{curT.selectMarital}</option>
+                            <option value="unmarried">{curT.msOptions.unmarried}</option>
+                            <option value="married">{curT.msOptions.married}</option>
+                            <option value="widowed">{curT.msOptions.widowed}</option>
+                            <option value="divorced">{curT.msOptions.divorced}</option>
+                            <option value="ready_for_next_marriage">{curT.msOptions.ready_for_next_marriage}</option>
+                        </BootstrapSelect>
+                    </div>
                   </div>
 
                   {/* 2. FATHER DETAILS */}
-                  <h6 className="text-uppercase text-secondary fw-bold mb-3 border-bottom pb-2">{curT.fatherDetails}</h6>
-                  <div className="row g-3 mb-4">
+                  <h6 className="text-uppercase text-secondary fw-bold mb-3 d-flex align-items-center">
+                    <span className="bg-primary rounded-circle d-inline-block me-2" style={{width: '8px', height:'8px'}}></span>
+                    {curT.fatherDetails}
+                  </h6>
+                  <div className="row g-3 mb-5">
                     <div className="col-md-4">
                       <BootstrapInput label={`${curT.name} (Father)`} name="father_name" value={formData.father_name} onChange={handleChange} required />
                     </div>
@@ -305,8 +372,11 @@ const UravugalForm = () => {
                   </div>
 
                   {/* 3. MOTHER DETAILS */}
-                  <h6 className="text-uppercase text-secondary fw-bold mb-3 border-bottom pb-2">{curT.motherDetails}</h6>
-                  <div className="row g-3 mb-4">
+                  <h6 className="text-uppercase text-secondary fw-bold mb-3 d-flex align-items-center">
+                    <span className="bg-primary rounded-circle d-inline-block me-2" style={{width: '8px', height:'8px'}}></span>
+                    {curT.motherDetails}
+                  </h6>
+                  <div className="row g-3 mb-5">
                     <div className="col-md-4">
                       <BootstrapInput label={`${curT.name} (Mother)`} name="mother_name" value={formData.mother_name} onChange={handleChange} required />
                     </div>
@@ -319,17 +389,20 @@ const UravugalForm = () => {
                   </div>
 
                   {/* 4. CONTACT & WORK */}
-                  <h6 className="text-uppercase text-secondary fw-bold mb-3 border-bottom pb-2">{curT.contactWork}</h6>
+                  <h6 className="text-uppercase text-secondary fw-bold mb-3 d-flex align-items-center">
+                    <span className="bg-primary rounded-circle d-inline-block me-2" style={{width: '8px', height:'8px'}}></span>
+                    {curT.contactWork}
+                  </h6>
                   <div className="row g-3 mb-4">
 
-                    {/* OCCUPATION DROPDOWN (Supports Multiple + Custom) */}
+                    {/* OCCUPATION DROPDOWN */}
                     <div className="col-12 mb-2" ref={wrapperRef}>
                       <label className="form-label text-muted small fw-bold">{curT.occupation} <span className="text-danger">*</span></label>
                       <div className={`border rounded p-2 bg-white d-flex flex-wrap gap-2 ${error.includes('Occupation') ? 'border-danger' : ''}`} style={{minHeight: '58px'}}>
 
-                        {/* Chips for Selected Items */}
+                        {/* Chips */}
                         {formData.occupation.map((occ, idx) => (
-                          <span key={idx} className="badge bg-primary d-flex align-items-center py-2 px-3 rounded-pill">
+                          <span key={idx} className="badge bg-primary bg-opacity-75 d-flex align-items-center py-2 px-3 rounded-pill text-white shadow-sm">
                             {occ}
                             <X size={14} className="ms-2 cursor-pointer" style={{cursor:'pointer'}} onClick={() => removeOccupation(occ)} />
                           </span>
@@ -343,7 +416,7 @@ const UravugalForm = () => {
                             value={occupationSearch}
                             onChange={(e) => {
                                 setOccupationSearch(e.target.value);
-                                setShowOccDropdown(true); // Show dropdown when typing
+                                setShowOccDropdown(true);
                             }}
                             onFocus={() => setShowOccDropdown(true)}
                             onBlur={handleInputBlur}
@@ -352,14 +425,13 @@ const UravugalForm = () => {
 
                           {/* Dropdown Suggestions */}
                           {showOccDropdown && occupationSearch && filteredOccupations.length > 0 && (
-                            <ul className="list-group position-absolute w-100 shadow mt-1 overflow-auto"
+                            <ul className="list-group position-absolute w-100 shadow mt-1 overflow-auto border-0"
                                 style={{maxHeight: '250px', zIndex: 9999, top: '100%', left: 0}}>
                                 {filteredOccupations.map((occ, i) => (
                                   <li
                                     key={i}
-                                    className="list-group-item list-group-item-action cursor-pointer"
+                                    className="list-group-item list-group-item-action cursor-pointer border-start-0 border-end-0"
                                     style={{cursor:'pointer'}}
-                                    // Use onMouseDown for immediate selection
                                     onMouseDown={(e) => { e.preventDefault(); addOccupation(occ); }}
                                   >
                                     {occ}
@@ -377,16 +449,16 @@ const UravugalForm = () => {
 
                     {/* BUSINESS CHECKBOX */}
                     <div className="col-12 mt-3">
-                        <div className="form-check">
+                        <div className="form-check p-2 rounded hover-bg-light">
                           <input
                             className="form-check-input"
                             type="checkbox"
                             id="businessCheck"
                             checked={formData.business_running === 'yes'}
                             onChange={handleBusinessCheck}
-                            style={{width: '1.3em', height: '1.3em', cursor:'pointer'}}
+                            style={{width: '1.2em', height: '1.2em', cursor:'pointer'}}
                           />
-                          <label className="form-check-label fw-bold ms-2 pt-1" htmlFor="businessCheck" style={{cursor:'pointer'}}>
+                          <label className="form-check-label fw-bold ms-2" htmlFor="businessCheck" style={{cursor:'pointer', paddingTop:'2px'}}>
                             {curT.businessQuestion}
                           </label>
                         </div>
@@ -394,7 +466,7 @@ const UravugalForm = () => {
 
                     {/* Conditional Business Name Field */}
                     {formData.business_running === 'yes' && (
-                        <div className="col-12 mt-3 fade-in">
+                        <div className="col-12 mt-2 fade-in">
                           <BootstrapInput
                             label={curT.businessName}
                             name="business_name"
@@ -409,23 +481,23 @@ const UravugalForm = () => {
                     <div className="col-md-6 mt-3">
                       <BootstrapInput label={curT.mobile} name="contact_number" value={formData.contact_number} onChange={handleChange} required type="tel" icon={<Phone size={18}/>} />
                     </div>
-                    {/* EMAIL - OPTIONAL NOW */}
+                    {/* EMAIL */}
                     <div className="col-md-6 mt-3">
-                      <BootstrapInput 
-                        label={curT.email} 
-                        name="email" 
-                        value={formData.email} 
-                        onChange={handleChange} 
-                        // removed 'required' prop
-                        type="email" 
-                        icon={<Mail size={18}/>} 
+                      <BootstrapInput
+                        label={curT.email}
+                        name="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        type="email"
+                        icon={<Mail size={18}/>}
                       />
                     </div>
                   </div>
 
                   <div className="d-grid gap-2 mt-5">
-                    <button type="submit" disabled={loading} className="btn btn-primary btn-lg rounded-pill py-3 fw-bold shadow-sm" style={{ background: 'linear-gradient(45deg, #4b6cb7, #182848)', border: 'none' }}>
-                      {loading ? <span>{curT.loading}</span> : <span className="d-flex align-items-center justify-content-center">{curT.submit} <ArrowRight className="ms-2" size={20}/></span>}
+                    <button type="submit" disabled={loading} className="btn btn-primary btn-lg rounded-pill py-3 fw-bold shadow hover-lift"
+                      style={{ background: 'linear-gradient(90deg, #1e3c72 0%, #2a5298 100%)', border: 'none', transition: 'all 0.3s' }}>
+                      {loading ? <span>{curT.loading}</span> : <span className="d-flex align-items-center justify-content-center text-uppercase spacing-1">{curT.submit} <ArrowRight className="ms-2" size={20}/></span>}
                     </button>
                   </div>
 
@@ -443,10 +515,35 @@ const UravugalForm = () => {
 const BootstrapInput = ({ label, name, value, onChange, icon, type = "text", required }) => {
   return (
     <div className="input-group" style={{ height: '58px' }}>
-      {icon && <span className="input-group-text bg-light border-end-0 text-secondary">{icon}</span>}
+      {icon && <span className="input-group-text bg-light border-end-0 text-secondary" style={{backgroundColor: '#f8f9fa'}}>{icon}</span>}
       <div className="form-floating flex-grow-1">
         <input type={type} className={`form-control ${icon ? 'border-start-0' : ''}`} id={name} name={name} value={value} onChange={onChange} placeholder={label} required={required} style={{ boxShadow: 'none' }} />
         <label htmlFor={name} className="text-muted">{label} {required && '*'}</label>
+      </div>
+    </div>
+  );
+};
+
+// ✅ UPDATED: Reusable Select Component with Required validation visual
+const BootstrapSelect = ({ label, name, value, onChange, icon, children, required }) => {
+  return (
+    <div className="input-group" style={{ height: '58px' }}>
+      {icon && <span className="input-group-text bg-light border-end-0 text-secondary" style={{backgroundColor: '#f8f9fa'}}>{icon}</span>}
+      <div className="form-floating flex-grow-1">
+        <select
+            className={`form-select ${icon ? 'border-start-0' : ''}`}
+            id={name}
+            name={name}
+            value={value}
+            onChange={onChange}
+            required={required} // ✅ Enables browser validation
+            style={{ boxShadow: 'none' }}
+        >
+            {children}
+        </select>
+        <label htmlFor={name} className="text-muted">
+          {label} {required && <span className="text-danger">*</span>}
+        </label>
       </div>
     </div>
   );
