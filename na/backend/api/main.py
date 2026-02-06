@@ -27,6 +27,7 @@ import threading
 import time
 from plan_expire_action import process_expired_plans
 
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 import warnings
@@ -41,24 +42,12 @@ app = FastAPI(
     redoc_url=None
 )
 
+
 # -------------------- STATIC FILES --------------------
 app.mount("/media", StaticFiles(directory="media"), name="media")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:5175",
-        "http://localhost:5176",   # ✅ THIS WAS MISSING
-
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-        "http://127.0.0.1:5175",
-        "http://127.0.0.1:5176",   # ✅ ADD THIS TOO
-
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-
         "https://nallaangadi.com",
         "https://www.nallaangadi.com",
         "https://api.nallaangadi.com",
