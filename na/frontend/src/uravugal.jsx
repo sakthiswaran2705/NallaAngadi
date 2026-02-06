@@ -49,7 +49,7 @@ const UravugalForm = () => {
   // ------------------------------------
   const translations = {
     en: {
-      titleMain: "ROYAL KAVERY | NALLA ANGADI",
+      titleMain: "ROYAL KAVERY & NALLA ANGADI",
       titleSub: "- URAVUGAL",
       subtitle: "URAVUGAL FORM",
       langBtn: "தமிழ்",
