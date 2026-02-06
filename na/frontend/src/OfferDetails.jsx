@@ -138,7 +138,10 @@ export default function OfferDetails() {
     if (!offer_id) return;
 
     setLoading(true);
-    fetch(`${BACKEND_URL}/offer/details/${offer_id}/`)
+    fetch(
+  `${BACKEND_URL}/offer/details/${offer_id}/?lang=${LANG}`
+    )
+
 
       .then(res => res.json())
       .then(d => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useSearchParams, useNavigate, useLocation } from "react-router-dom"; // Added useLocation
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { Button, Spinner, Icon, NonIdealState, OverlayToaster, Position } from "@blueprintjs/core";
 import { motion, AnimatePresence } from "framer-motion";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -8,8 +8,6 @@ import Navbar from "./Navbar.jsx";
 /* ---------------- "FLOATING PILL" DESIGN SYSTEM ---------------- */
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');
-  /* ... (Keep your existing CSS styles exactly as they are) ... */
-  /* For brevity, I am assuming the CSS is unchanged from your code */
   :root { --primary: #2563eb; --primary-hover: #1d4ed8; --accent: #f59e0b; --bg-page: #f8fafc; --text-main: #0f172a; --text-sub: #64748b; --shadow-soft: 0 10px 40px -10px rgba(0,0,0,0.08); --shadow-hover: 0 20px 40px -10px rgba(0,0,0,0.15); }
   body { background-color: var(--bg-page); font-family: 'DM Sans', sans-serif; color: var(--text-main); margin: 0; }
   .search-header { background: #ffffff; padding: 20px 0; position: sticky; top: 0; z-index: 50; border-bottom: 1px solid #e2e8f0; }
@@ -60,12 +58,13 @@ const useDebounce = (callback, delay) => {
 };
 
 const AppToaster = await OverlayToaster.create({ position: Position.TOP });
-const API_BASE = import.meta.env.VITE_BACKEND_URL;
+const API_BASE = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000"; // Fallback added
 
 export default function SearchResults() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const location = useLocation(); // Used to trigger save cleanup if needed
+  // eslint-disable-next-line
+  const location = useLocation();
 
   const initialCat = searchParams.get("category") || "";
   const initialCity = searchParams.get("city") || "";
@@ -91,35 +90,30 @@ export default function SearchResults() {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  // New Ref to track if we just restored from cache (to prevent duplicate fetches)
+  // Ref to track if we just restored from cache
   const isRestored = useRef(false);
 
-  // --- 1. FETCH MASTER CATEGORY LIST ---
   useEffect(() => {
     const fetchCats = async () => {
       try {
         const res = await fetch(`${API_BASE}/category/list/?lang=${lang}`);
         const json = await res.json();
         setAllCategories(json.data || []);
-      } catch (e) {
-        console.error("Failed to load categories", e);
-      }
+      } catch (e) { console.error("Failed to load categories", e); }
     };
     fetchCats();
   }, [lang]);
 
-  // --- 2. SUGGESTION LOGIC ---
+  // --- SUGGESTION LOGIC ---
   const fetchCatSuggestions = async (val) => {
     if (!val.trim()) { setCatSuggestions([]); return; }
     const lower = val.toLowerCase();
-
     let combinedList = [];
     if (allCategories.length > 0) {
       allCategories.forEach(cat => {
         if (cat.name.toLowerCase().includes(lower)) combinedList.push(cat.name);
       });
     }
-
     try {
       const res = await fetch(`${API_BASE}/shop/search/?name=${encodeURIComponent(val)}&lang=${lang}`);
       const json = await res.json();
@@ -129,7 +123,6 @@ export default function SearchResults() {
         if (shopName && !combinedList.includes(shopName)) combinedList.push(shopName);
       });
     } catch (e) { console.error(e); }
-
     setCatSuggestions([...new Set(combinedList)].slice(0, 8));
   };
 
@@ -146,7 +139,7 @@ export default function SearchResults() {
   const debouncedCat = useDebounce(fetchCatSuggestions, 300);
   const debouncedCity = useDebounce(fetchCitySuggestions, 300);
 
-  // --- 3. RESULTS FETCHING ---
+  // --- RESULTS FETCHING ---
   const fetchResults = async (pageNum, isInitial = false) => {
     if (isInitial) setLoading(true); else setLoadingMore(true);
     try {
@@ -164,38 +157,26 @@ export default function SearchResults() {
     finally { if (isInitial) setLoading(false); else setLoadingMore(false); }
   };
 
-  // --- 4. INITIAL LOAD WITH RESTORE CAPABILITY ---
+  // --- INITIAL LOAD & PAGINATION ---
   useEffect(() => {
-    // Check session storage for saved state
     const savedState = sessionStorage.getItem("shopSearchResults");
-
     if (savedState) {
         const parsed = JSON.parse(savedState);
-
-        // Only restore if the search params match (e.g. user didn't change URL manually)
         if (parsed.cat === initialCat && parsed.city === initialCity) {
-            console.log("Restoring previous search state...");
             setResults(parsed.results);
             setPage(parsed.page);
             setHasMore(parsed.hasMore);
             setCatInput(parsed.catInput);
             setCityInput(parsed.cityInput);
-
-            isRestored.current = true; // Mark as restored to skip page-change fetch
-
-            // Restore scroll position after a slight delay to allow rendering
+            isRestored.current = true;
             setTimeout(() => {
                 window.scrollTo(0, parsed.scrollPos);
-                isRestored.current = false; // Reset after scroll is done
-                // Optional: Clear storage so refresh works normally
+                isRestored.current = false;
                 sessionStorage.removeItem("shopSearchResults");
             }, 100);
-
-            return; // EXIT HERE -> Do not fetch from API
+            return;
         }
     }
-
-    // Normal behavior if no saved state
     setCatInput(initialCat);
     setCityInput(initialCity);
     setPage(1);
@@ -203,12 +184,9 @@ export default function SearchResults() {
     // eslint-disable-next-line
   }, [initialCat, initialCity, lang]);
 
-  // --- 5. PAGINATION EFFECT ---
   useEffect(() => {
-      // If we just restored data (isRestored.current is true), do NOT fetch again.
-      if (page > 1 && !isRestored.current) {
-          fetchResults(page, false);
-      }
+      if (page > 1 && !isRestored.current) fetchResults(page, false);
+      // eslint-disable-next-line
   }, [page]);
 
   useEffect(() => {
@@ -225,43 +203,30 @@ export default function SearchResults() {
   const handleSearch = (c = catInput, ct = cityInput) => {
     setShowCatDrop(false);
     setShowCityDrop(false);
-    // Clear old session storage on new search
     sessionStorage.removeItem("shopSearchResults");
-    if (c && ct) {
-      navigate(`/results?category=${encodeURIComponent(c)}&city=${encodeURIComponent(ct)}`);
+    if (c) {
+      // Allow searching without city, defaulting empty
+      const cityParam = ct || "";
+      navigate(`/results?category=${encodeURIComponent(c)}&city=${encodeURIComponent(cityParam)}`);
     } else {
-      AppToaster.show({ message: "Please enter both category and city!", intent: "warning" });
+      AppToaster.show({ message: "Please enter a category or shop name!", intent: "warning" });
     }
   };
 
-  // --- NEW: HANDLE CARD CLICK (SAVE STATE) ---
   const handleCardClick = (s) => {
-      // Save current state before navigating away
       const stateToSave = {
-          results: results,
-          page: page,
-          hasMore: hasMore,
-          catInput: catInput,
-          cityInput: cityInput,
-          cat: initialCat,
-          city: initialCity,
-          scrollPos: window.scrollY // Save Scroll Y
+          results, page, hasMore, catInput, cityInput,
+          cat: initialCat, city: initialCity,
+          scrollPos: window.scrollY
       };
       sessionStorage.setItem("shopSearchResults", JSON.stringify(stateToSave));
-
-      // Navigate
       navigate("/shop", { state: { shop: s } });
   };
 
   const handleAction = (e, type, value) => {
     e.stopPropagation();
     e.preventDefault();
-
-    if (!value) {
-      AppToaster.show({ message: "Contact info not available.", intent: "danger", icon: "error" });
-      return;
-    }
-
+    if (!value) { AppToaster.show({ message: "Info not available.", intent: "warning" }); return; }
     try {
       if (type === 'call') {
         window.location.href = `tel:${value}`;
@@ -272,12 +237,10 @@ export default function SearchResults() {
         window.open(`https://wa.me/${finalNum}`, '_blank');
       }
       else if (type === 'map') {
-        // Fixed Map URL syntax
+        // FIXED: Use standard Google Maps Search Query
         window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value)}`, '_blank');
       }
-    } catch(err) {
-      console.error("Action failed", err);
-    }
+    } catch(err) { console.error("Action failed", err); }
   };
 
   return (
@@ -288,7 +251,7 @@ export default function SearchResults() {
       <div className="search-header">
         <div className="container">
           <div className="floating-search-bar">
-            {/* Find Input */}
+            {/* Find */}
             <div className="search-section">
               <label className="search-label">Find</label>
               <input
@@ -296,21 +259,14 @@ export default function SearchResults() {
                 placeholder="Plumber, Hotel, Gym..."
                 value={catInput}
                 autoComplete="off"
-                onChange={(e) => {
-                  setCatInput(e.target.value);
-                  debouncedCat(e.target.value);
-                  setShowCatDrop(true);
-                }}
+                onChange={(e) => { setCatInput(e.target.value); debouncedCat(e.target.value); setShowCatDrop(true); }}
                 onFocus={() => { setShowCatDrop(true); if(catInput) debouncedCat(catInput); }}
                 onBlur={() => setTimeout(() => setShowCatDrop(false), 200)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               />
               <AnimatePresence>
                 {showCatDrop && catSuggestions.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    className="suggestions-dropdown"
-                  >
+                  <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}} className="suggestions-dropdown">
                     {catSuggestions.map((item, i) => (
                       <div key={i} className="suggestion-item" onMouseDown={() => { setCatInput(item); handleSearch(item, cityInput); }}>
                         <Icon icon="search" /> {item}
@@ -323,7 +279,7 @@ export default function SearchResults() {
 
             <div className="search-divider"></div>
 
-            {/* Where Input */}
+            {/* Where */}
             <div className="search-section">
               <label className="search-label">Where</label>
               <input
@@ -331,23 +287,16 @@ export default function SearchResults() {
                 placeholder="City or Zip code"
                 value={cityInput}
                 autoComplete="off"
-                onChange={(e) => {
-                  setCityInput(e.target.value);
-                  debouncedCity(e.target.value);
-                  setShowCityDrop(true);
-                }}
+                onChange={(e) => { setCityInput(e.target.value); debouncedCity(e.target.value); setShowCityDrop(true); }}
                 onFocus={() => { setShowCityDrop(true); if(cityInput) debouncedCity(cityInput); }}
                 onBlur={() => setTimeout(() => setShowCityDrop(false), 200)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               />
               <AnimatePresence>
                 {showCityDrop && citySuggestions.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    className="suggestions-dropdown"
-                  >
+                  <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0}} className="suggestions-dropdown">
                     {citySuggestions.map((item, i) => (
-                      <div key={i} className="suggestion-item" onMouseDown={() => { setCityInput(item); }}>
+                      <div key={i} className="suggestion-item" onMouseDown={() => { setCityInput(item); handleSearch(catInput, item); }}>
                         <Icon icon="map-marker" style={{color:'#10b981'}} /> {item}
                       </div>
                     ))}
@@ -375,61 +324,80 @@ export default function SearchResults() {
         ) : (
             <>
                 {results.length === 0 ? (
-                <NonIdealState
-                  icon="search"
-                  title="No Results Found"
-                  description="We couldn't find anything matching your search."
-                  action={<Button intent="primary" onClick={() => navigate('/')}>Go Home</Button>}
-                />
+                <NonIdealState icon="search" title="No Results Found" description="We couldn't find anything matching your search." action={<Button intent="primary" onClick={() => navigate('/')}>Go Home</Button>} />
                 ) : (
                 <div className="results-grid">
                     <AnimatePresence>
                     {results.map((item, idx) => {
-                        const s = item.shop || item.shop?.shop || item;
-                        const img = s.main_image
-                        ? `${API_BASE}/${s.main_image}`
-
-                        : (s.media?.[0]?.path ? `${API_BASE}/${s.media[0].path}` : "https://via.placeholder.com/400x300");
-
+                        const s = item.shop || {};
                         const contactNum = s.mobile || s.phone_number;
-                        const mapLocation = s.address ? `${s.shop_name}, ${s.address}` : (s.city ? `${s.shop_name}, ${s.city}` : cityInput);
+                        const locationText = s.address || (s.city ? s.city.city_name : cityInput);
+
+                        // --- FIXED IMAGE LOGIC ---
+                        // 1. Trust Backend Resolution first (it's inside 'shop' object)
+                        let rawImage = s.main_image;
+
+                        // 2. Fallback to Media array if backend resolver failed
+                        if (!rawImage && s.media && s.media.length > 0) {
+                            rawImage = s.media[0].path;
+                        }
+
+                        let finalImgSrc = "";
+                        if (!rawImage || rawImage.toString().trim() === "") {
+                             finalImgSrc = "https://placehold.co/400x300?text=No+Image";
+                        } else if (rawImage.startsWith("http") || rawImage.startsWith("//")) {
+                             finalImgSrc = rawImage;
+                        } else {
+                             // Handle API_BASE having a trailing slash or path starting with slash
+                             const base = API_BASE.replace(/\/$/, "");
+                             const path = rawImage.startsWith("/") ? rawImage : `/${rawImage}`;
+                             finalImgSrc = `${base}${path}?v=${s.updated_at || s._id}`;
+
+                        }
 
                         return (
                         <motion.div
-                            key={idx}
+                            key={s._id || idx}
                             className="clean-card"
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.05 }}
-             
                             onClick={() => handleCardClick(s)}
                         >
                             <div className="card-image-box">
-                            <img src={img} alt={s.shop_name} className="card-img" />
-                            <div className="rating-pill">
-                                <Icon icon="star" color="#f59e0b" size={12} style={{marginBottom:2}} />
-                                {s.avg_rating ? parseFloat(s.avg_rating).toFixed(1) : "N/A"}
+                                <img
+                                    src={finalImgSrc}
+                                    alt={s.shop_name || "Shop"}
+                                    className="card-img"
+                                    onError={(e) => {
+                                        e.target.onerror = null;
+                                        e.target.src = "https://placehold.co/400x300?text=Image+Not+Found";
+                                    }}
+                                />
+                                <div className="rating-pill">
+                                    <Icon icon="star" color="#f59e0b" size={12} style={{marginBottom:2}} />
+                                    {item.avg_rating ? parseFloat(item.avg_rating).toFixed(1) : "N/A"}
+                                </div>
                             </div>
-                            </div>
+
                             <div className="card-info">
-                            <div className="card-title">{s.shop_name}</div>
-                            <div className="card-sub">
-                                <Icon icon="map-marker" color="#94a3b8" size={12} />
-                                {s.address || cityInput}
-                            </div>
+                                <div className="card-title">{s.shop_name}</div>
+                                <div className="card-sub">
+                                    <Icon icon="map-marker" color="#94a3b8" size={12} />
+                                    {locationText}
+                                </div>
 
-                            <div className="card-actions-row">
-                                <div className="action-chip" onClick={(e) => handleAction(e, 'call', contactNum)}>
-                                    <Icon icon="phone" size={12} /> Call
+                                <div className="card-actions-row">
+                                    <div className="action-chip" onClick={(e) => handleAction(e, 'call', contactNum)}>
+                                        <Icon icon="phone" size={12} /> Call
+                                    </div>
+                                    <div className="action-chip" onClick={(e) => handleAction(e, 'chat', contactNum)}>
+                                        <Icon icon="chat" size={12} /> Chat
+                                    </div>
+                                    <div className="action-chip" onClick={(e) => handleAction(e, 'map', `${s.shop_name} ${locationText}`)}>
+                                        <Icon icon="map" size={12} /> Map
+                                    </div>
                                 </div>
-                                <div className="action-chip" onClick={(e) => handleAction(e, 'chat', contactNum)}>
-                                    <Icon icon="chat" size={12} /> Chat
-                                </div>
-                                <div className="action-chip" onClick={(e) => handleAction(e, 'map', mapLocation)}>
-                                    <Icon icon="map" size={12} /> Map
-                                </div>
-                            </div>
-
                             </div>
                         </motion.div>
                         );

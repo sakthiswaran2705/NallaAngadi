@@ -52,17 +52,21 @@ def save_notification_settings(
 # INTERNAL HELPER – SEND NOTIFICATION
 # =================================================
 def send_user_notification(
-    user_id: ObjectId,
+    user_id,
+    notif_type: str,
     title: str,
     message: str,
-    notif_type: str = "general",
     related_id: str = None
 ):
     """
     In-app notification ONLY.
-    No email here.
     """
-    user = col_user.find_one({"_id": user_id})
+    try:
+        u_oid = ObjectId(user_id)
+    except:
+        return
+
+    user = col_user.find_one({"_id": u_oid})
     if not user:
         return
 
@@ -71,7 +75,7 @@ def send_user_notification(
 
     if push_enabled:
         col_notifications.insert_one({
-            "user_id": user_id,
+            "user_id": str(user_id),   # ✅ STORE AS STRING
             "type": notif_type,
             "title": title,
             "message": message,
@@ -80,9 +84,8 @@ def send_user_notification(
             "created_at": datetime.utcnow()
         })
 
-# =================================================
 # GET NOTIFICATION SETTINGS
-# =================================================
+
 @router.get("/user/notification-settings/", operation_id="getNotificationSettings")
 def get_notification_settings(
     user_id: str = Depends(verify_token)

@@ -22,7 +22,10 @@ from otp_mail import router as otp_router
 from notifications_setting import router as notification_settings_router
 from shop_views import router as shop_views_router
 #from account_create_auto import router as account_router
-#from register_automatic import  router as register_auto
+from contact_save import  router as contact_router
+import threading
+import time
+from plan_expire_action import process_expired_plans
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
@@ -40,19 +43,35 @@ app = FastAPI(
 
 # -------------------- STATIC FILES --------------------
 app.mount("/media", StaticFiles(directory="media"), name="media")
-origins = [
-    "http://localhost:5173",  # React (Vite) default port
-    "http://localhost:3000",  # React (CRA) default port
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:3000",
-]
-# -------------------- CORS --------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://localhost:5176",   # ✅ THIS WAS MISSING
+
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:5175",
+        "http://127.0.0.1:5176",   # ✅ ADD THIS TOO
+
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+
+        "https://nallaangadi.com",
+        "https://www.nallaangadi.com",
+        "https://api.nallaangadi.com",
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+
+
+
 
 # -------------------- ROUTERS --------------------
 app.include_router(search_router)
@@ -62,7 +81,7 @@ app.include_router(slideshow_router)
 app.include_router(offer_router)
 app.include_router(every_shop)
 #app.include_router(translate_router)
-#app.include_router(city)
+app.include_router(contact_router)
 app.include_router(jobs_router)
 app.include_router(payment_router)
 app.include_router(uravugal_router)
@@ -74,3 +93,30 @@ app.include_router(get_top)
 @app.get("/")
 def root():
     return {"message": "Multiple APIs running!"}
+
+
+# plan expire
+def expiry_background_worker():
+    """
+    Background job:
+    checks expired plans periodically
+    """
+    while True:
+        try:
+            print(" Checking expired plans...")
+            process_expired_plans()
+        except Exception as e:
+            print(" Expiry worker error:", e)
+
+        #time.sleep(60)  #every 1 minute
+        time.sleep(300)    #every 5 minutes
+
+
+@app.on_event("startup")
+def start_expiry_worker():
+    print(" Starting plan expiry background worker")
+    thread = threading.Thread(
+        target=expiry_background_worker,
+        daemon=True
+    )
+    thread.start()

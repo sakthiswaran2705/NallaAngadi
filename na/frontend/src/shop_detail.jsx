@@ -27,7 +27,10 @@ const TXT = {
   cancel: { en: "Cancel", ta: "ரத்து" },
   delete: { en: "Delete", ta: "நீக்கு" },
   loginReq: { en: "Login Required", ta: "உள்நுழைவு தேவை" },
-  loginMsg: { en: "Please login to perform this action.", ta: "தயவுசெய்து உள்நுழையவும்." }
+  loginMsg: { en: "Please login to perform this action.", ta: "தயவுசெய்து உள்நுழையவும்." },
+  // ⭐ Added Description Translations
+  about: { en: "About this Shop", ta: "கடை பற்றி" },
+  noDesc: { en: "No description available.", ta: "விளக்கம் இல்லை." }
 };
 
 // ==========================================================
@@ -123,9 +126,8 @@ function ShopDetails() {
   // --------------------------------------------------------
   // B. LOCAL STATE
   // --------------------------------------------------------
-  // ⭐ IMPORTANT: Store full details here, initialized with what we have
   const [shopDetails, setShopDetails] = useState(initialShopDoc);
-  
+
   const [mediaList, setMediaList] = useState([]);
   const [mainMedia, setMainMedia] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -151,39 +153,18 @@ function ShopDetails() {
   };
 
   // --------------------------------------------------------
-  // C. HELPERS
-  // --------------------------------------------------------
-  const showPopup = (type, message, title = "") => {
-      setPopup({ type, message, title });
-      setTimeout(() => setPopup(null), 3000);
-  };
-
-  const recalculateAvgRating = (currentReviews) => {
-    if (currentReviews?.length > 0) {
-      const sum = currentReviews.reduce((a, b) => a + b.rating, 0);
-      setAvgRating((sum / currentReviews.length).toFixed(1));
-    } else {
-      setAvgRating(null);
-    }
-  };
-
-  const loadAllReviews = () => setVisibleReviewCount(reviews.length);
-
-  // --------------------------------------------------------
-  // D. EFFECTS
+  // C. EFFECTS
   // --------------------------------------------------------
 
   useEffect(() => {
-    if (shopId) { 
-        setReady(true); 
+    if (shopId) {
+        setReady(true);
         window.scrollTo(0, 0);
-        
-        // ⭐ NEW: Fetch Full Shop Details (Fixes "N/A" issue)
+
         fetch(`${API_BASE}/shop/${shopId}?lang=${lang}`)
             .then(res => res.json())
             .then(json => {
                 if(json.status && json.data) {
-                    // Update local state with fresh data from backend
                     setShopDetails(prev => ({ ...prev, ...json.data }));
                 }
             })
@@ -222,10 +203,9 @@ function ShopDetails() {
       });
   }, [shopId]);
 
-  // ⭐ LOAD TOP RATED
+  // Load Top Rated
   useEffect(() => {
       if (!shopId) return;
-
       setLoadingTopRated(true);
 
       const homeResultsRaw = sessionStorage.getItem("HOME_RESULTS");
@@ -250,15 +230,13 @@ function ShopDetails() {
               const filtered = formatted.filter(item => String(item.shop_id) !== String(shopId));
               setTopRatedShops(filtered.slice(0, 5));
               setLoadingTopRated(false);
-              return; 
-          } catch (e) {
-              console.error("Error parsing HOME_RESULTS", e);
-          }
+              return;
+          } catch (e) { console.error("Error parsing HOME_RESULTS", e); }
       }
 
       const cityName = cityDoc?.city_name || "";
       let queryParams = `lang=${lang}&limit=10`;
-      if (cityName) queryParams += `&city=${encodeURIComponent(cityName)}`; 
+      if (cityName) queryParams += `&city=${encodeURIComponent(cityName)}`;
 
       fetch(`${API_BASE}/shops/top-rated?${queryParams}`)
           .then(res => res.json())
@@ -293,12 +271,25 @@ function ShopDetails() {
   // --------------------------------------------------------
 
   const handleBack = () => {
-    if (window.history.length > 1) {
-        navigate(-1);
+    if (window.history.length > 1) navigate(-1);
+    else navigate('/');
+  };
+
+  const showPopup = (type, message, title = "") => {
+      setPopup({ type, message, title });
+      setTimeout(() => setPopup(null), 3000);
+  };
+
+  const recalculateAvgRating = (currentReviews) => {
+    if (currentReviews?.length > 0) {
+      const sum = currentReviews.reduce((a, b) => a + b.rating, 0);
+      setAvgRating((sum / currentReviews.length).toFixed(1));
     } else {
-        navigate('/');
+      setAvgRating(null);
     }
   };
+
+  const loadAllReviews = () => setVisibleReviewCount(reviews.length);
 
   const submitReview = async () => {
     if (loggedInUserId === "") {
@@ -509,6 +500,16 @@ function ShopDetails() {
                     ) : <div className="p-5 text-center text-muted">No Images Available</div>}
                 </div>
 
+                {/* ⭐ NEW: DESCRIPTION CARD */}
+                <div className="content-card p-4">
+                    <h5 className="fw-bold text-dark mb-3">{t("about")}</h5>
+                    <p className="text-secondary mb-0" style={{ whiteSpace: 'pre-line', lineHeight: '1.6' }}>
+                        {getField("description") && getField("description") !== "N/A"
+                            ? getField("description")
+                            : t("noDesc")}
+                    </p>
+                </div>
+
                 {/* REVIEWS */}
                 <div className="content-card p-4">
                     <h3 style={{fontWeight:800, color:'#1e293b', marginBottom:20}}>{t("reviews")} <span className="text-muted" style={{fontSize:'0.6em', verticalAlign:'middle'}}>({reviews.length})</span></h3>
@@ -580,11 +581,19 @@ function ShopDetails() {
                     <p className="text-secondary fw-bold mb-4"><Icon icon="map-marker" /> {cityDoc.city_name}</p>
                     <hr className="my-4 border-light" />
                     <h5 className="fw-bold text-dark mb-4">{t("contactInfo")}</h5>
-                    
-                    {/* ⭐ USING getField TO SHOW FETCHED DATA */}
+
+                    {/* FETCHED DATA */}
                     <div className="contact-row"><Icon icon="phone" className="contact-icon"/> <a href={`tel:${getField("phone_number")}`} className="text-decoration-none text-dark fw-bold">{getField("phone_number") === "N/A" ? "No Phone" : getField("phone_number")}</a></div>
                     <div className="contact-row"><Icon icon="envelope" className="contact-icon"/> {getField("email") === "N/A" ? "No Email" : getField("email")}</div>
                     <div className="contact-row"><Icon icon="geolocation" className="contact-icon"/> {getField("address")}</div>
+
+                    {/* LANDMARK */}
+                    {getField("landmark") && getField("landmark") !== "N/A" && (
+                        <div className="contact-row">
+                            <Icon icon="flag" className="contact-icon"/>
+                            <span><span className="fw-bold text-dark">Landmark:</span> {getField("landmark")}</span>
+                        </div>
+                    )}
 
                     <button className="offer-btn mt-4" onClick={() => navigate(`/offers/shop/${shopId}/`, { state: { shop: restoredState.shop, city: restoredState.city } })}>🎉 {t("offers")}</button>
 
@@ -650,13 +659,12 @@ const TopRatedShopCard = ({ data, navigate }) => {
   const handleClick = () => {
     const newShopState = {
       shop: {
-        _id: data.shop_id, // Pass ID correctly
-        shop_id: data.shop_id, // Pass ID correctly again for safety
+        _id: data.shop_id,
+        shop_id: data.shop_id,
         shop_name: data.shop_name,
         main_image: data.image,
         average_rating: data.average_rating,
         review_count: data.review_count,
-        // Pass what we have, but the MAIN PAGE will now fetch the rest
         phone_number: data.phone_number || "",
         email: data.email || "",
         address: data.address || "",
@@ -711,6 +719,5 @@ const TopRatedShopCard = ({ data, navigate }) => {
     </div>
   );
 };
-
 
 export default ShopDetails;

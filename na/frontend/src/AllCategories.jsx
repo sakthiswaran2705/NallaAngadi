@@ -57,7 +57,7 @@ const AllCategories = () => {
                             <div key={idx}
                                 onClick={() => handleCategoryClick(cat)}
                                 style={{
-                                    background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px',
+                                    background: 'white', border: '1px solid #e2e8f0', borderRadius: '16px',fontFamily: "'Inter', 'Noto Sans Tamil', sans-serif",
                                     padding: '20px 10px', textAlign: 'center', cursor: 'pointer',
                                     boxShadow: '0 2px 4px rgba(0,0,0,0.05)', transition: 'transform 0.2s'
                                 }}

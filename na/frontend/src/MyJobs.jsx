@@ -252,7 +252,7 @@ export default function MyJobs() {
   };
 
   const s = {
-    page: { backgroundColor: colors.bg, minHeight: "100vh", fontFamily: "'Inter', sans-serif" },
+    page: { backgroundColor: colors.bg, minHeight: "100vh", fontFamily: "'Inter', 'Noto Sans Tamil', sans-serif" },
     container: { maxWidth: "1200px", margin: "0 auto", padding: "20px" },
     header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", background: colors.card, padding: "1rem 1.5rem", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" },
     title: { margin: 0, fontSize: "1.5rem", fontWeight: "700", color: "#111827" },

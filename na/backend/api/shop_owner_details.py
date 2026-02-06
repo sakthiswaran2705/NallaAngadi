@@ -21,6 +21,11 @@ from payments import check_shop_limit, check_offer_limit
 # --- TRANSLATOR SYSTEM HELPERS ---
 from translator import ta_to_en, en_to_ta
 from cache import get_cached, set_cache
+from datetime import datetime, timedelta
+
+
+expiry_date = datetime.utcnow() + timedelta(days=30)
+
 
 # --- ROUTER AND COLLECTIONS ---
 router = APIRouter()
@@ -155,25 +160,43 @@ def oid(x): return str(x) if isinstance(x, ObjectId) else x
 
 
 @router.post("/register/", operation_id="registerUser")
-def register(firstname: str = Form(None), lastname: str = Form(None), email: str = Form(None), phone: int = Form(None),
-             password: str = Form(...)):
-    if not email and not phone: return {"status": False, "message": "Email or phone number required"}
+def register(
+    firstname: str = Form(None),
+    lastname: str = Form(None),
+    email: str = Form(None),
+    phone: int = Form(None),   # ✅ INT ONLY
+    password: str = Form(...)
+):
+    if not email and not phone:
+        return {"status": False, "message": "Email or phone number required"}
+
     email = email.strip().lower() if email else None
-    phone = phone.strip() if phone else None
-    if email and col_user.find_one({"email": email}, {"_id": 1}): return {"status": False,
-                                                                          "message": "Email already exists"}
-    if phone and col_user.find_one({"phonenumber": phone}, {"_id": 1}): return {"status": False,
-                                                                                "message": "Phone number already exists"}
+    phone = int(phone) if phone is not None else None  # ✅ FIX
+
+    if email and col_user.find_one({"email": email}, {"_id": 1}):
+        return {"status": False, "message": "Email already exists"}
+
+    if phone and col_user.find_one({"phonenumber": phone}, {"_id": 1}):
+        return {"status": False, "message": "Phone number already exists"}
 
     user_id = col_user.insert_one({
-        "password": hash_password(password), "firstname": firstname, "lastname": lastname,
-        "email": email, "phonenumber": phone, "created_at": datetime.utcnow(), "notification_settings": {
+        "firstname": firstname,
+        "lastname": lastname,
+        "email": email,
+        "phonenumber": phone,   # ✅ stored as int
+        "password": hash_password(password),
+        "created_at": datetime.utcnow(),
+        "notification_settings": {
             "email": True,
             "push": True
         }
     }).inserted_id
-    return {"status": True, "user_id": str(user_id), "message": "Registered successfully"}
 
+    return {
+        "status": True,
+        "user_id": str(user_id),
+        "message": "Registered successfully"
+    }
 
 @router.post("/login/", operation_id="loginUser")
 def login(
@@ -484,7 +507,7 @@ def update_shop(
         phone_number: str = Form(None),
         email: str = Form(None),
         landmark: str = Form(None),
-        category_list: str = Form(None),
+        category_list: str = Form(None),   # <-- IMPORTANT
         city_id: str = Form(None),
         keywords: str = Form(None),
         media: list[UploadFile] = File(None),
@@ -492,46 +515,105 @@ def update_shop(
         delete_media: str = Form(None),
         lang: str = Query("en")
 ):
+    # ---------------- VALIDATE SHOP ----------------
     try:
         soid = ObjectId(shop_id)
     except:
         return {"status": "error", "message": "Invalid shop id"}
 
-    shop = col_shop.find_one({"_id": soid})
+    shop = col_shop.find_one({"_id": soid, "user_id": user_id})
     if not shop:
         return {"status": "error", "message": "Shop not found"}
 
     update = {}
-    if shop_name: update["shop_name"] = ta_to_en(shop_name) if lang == "ta" else shop_name
-    if description: update["description"] = ta_to_en(description) if lang == "ta" else description
-    if address: update["address"] = ta_to_en(address) if lang == "ta" else address
-    if phone_number: update["phone_number"] = phone_number
-    if email: update["email"] = email
-    if landmark: update["landmark"] = ta_to_en(landmark) if lang == "ta" else landmark
 
+    # ---------------- BASIC FIELDS ----------------
+    if shop_name:
+        update["shop_name"] = ta_to_en(shop_name) if lang == "ta" else shop_name
+
+    if description:
+        update["description"] = ta_to_en(description) if lang == "ta" else description
+
+    if address:
+        update["address"] = ta_to_en(address) if lang == "ta" else address
+
+    if phone_number:
+        update["phone_number"] = phone_number
+
+    if email:
+        update["email"] = email
+
+    if landmark:
+        update["landmark"] = ta_to_en(landmark) if lang == "ta" else landmark
+
+    # ---------------- KEYWORDS ----------------
     if keywords:
         k = ta_to_en(keywords) if lang == "ta" else keywords
         update["keywords"] = [i.strip() for i in k.split(",") if i.strip()]
 
+    # ---------------- CATEGORY UPDATE (FIX) ----------------
+    if category_list:
+        new_cat_ids = []
+
+        for raw in category_list.split(","):
+            name = raw.strip()
+            if not name:
+                continue
+
+            db_name = ta_to_en(name) if lang == "ta" else name
+
+            cat = col_category.find_one(
+                {"name": {"$regex": f"^{db_name}$", "$options": "i"}},
+                {"_id": 1}
+            )
+
+            if not cat:
+                return {
+                    "status": "error",
+                    "message": f"Category '{name}' not found"
+                }
+
+            new_cat_ids.append(str(cat["_id"]))
+
+        update["category"] = new_cat_ids
+    # -------------------------------------------------------
+
+    # ---------------- CITY UPDATE ----------------
+    if city_id:
+        try:
+            city_oid = ObjectId(city_id)
+            city = col_city.find_one({"_id": city_oid})
+            if city:
+                update["city_id"] = str(city_oid)
+        except:
+            pass
+
+    # ---------------- MAIN IMAGE ----------------
     if main_image:
         img_dir = os.path.join(MEDIA_BASE, shop_id, "main")
         os.makedirs(img_dir, exist_ok=True)
+
         old = shop.get("main_image")
-        if old:
+        if old and os.path.exists(old):
             try:
                 os.remove(old)
             except:
                 pass
+
         ext = main_image.filename.split(".")[-1]
         fname = f"{uuid.uuid4()}.{ext}"
         full_path = os.path.join(img_dir, fname)
+
         with open(full_path, "wb") as f:
             f.write(main_image.file.read())
+
         update["main_image"] = f"{MEDIA_BASE}/{shop_id}/main/{fname}"
 
+    # ---------------- DELETE MEDIA ----------------
     if delete_media:
         delete_paths = [p.strip() for p in delete_media.split(",") if p.strip()]
         remaining = []
+
         for m in shop.get("media", []):
             if m["path"] in delete_paths:
                 try:
@@ -540,17 +622,22 @@ def update_shop(
                     pass
             else:
                 remaining.append(m)
+
         update["media"] = remaining
 
+    # ---------------- ADD MEDIA ----------------
     if media:
         img_dir = os.path.join(MEDIA_BASE, shop_id, "images")
         vid_dir = os.path.join(MEDIA_BASE, shop_id, "videos")
         os.makedirs(img_dir, exist_ok=True)
         os.makedirs(vid_dir, exist_ok=True)
+
         current = update.get("media", shop.get("media", []))
+
         for f in media:
             ext = f.filename.split(".")[-1]
             fname = f"{uuid.uuid4()}.{ext}"
+
             if f.content_type.startswith("image"):
                 full = os.path.join(img_dir, fname)
                 dbp = f"{MEDIA_BASE}/{shop_id}/images/{fname}"
@@ -561,18 +648,30 @@ def update_shop(
                 typ = "video"
             else:
                 continue
+
             with open(full, "wb") as file:
                 file.write(f.file.read())
+
             current.append({"type": typ, "path": dbp})
+
         update["media"] = current
 
+    # ---------------- FINAL UPDATE ----------------
     if update:
         col_shop.update_one({"_id": soid}, {"$set": update})
-        create_notification(user_id, "shop_updated", "Shop Updated", f"Shop '{shop.get('shop_name')}' updated.",
-                            shop_id)
 
-    return {"status": "success", "message": "Shop updated successfully"}
+        create_notification(
+            user_id,
+            "shop_updated",
+            "Shop Updated",
+            f"Shop '{shop.get('shop_name')}' updated successfully.",
+            shop_id
+        )
 
+    return {
+        "status": "success",
+        "message": translate_to_ta_logic("Shop updated successfully") if lang == "ta" else "Shop updated successfully"
+    }
 
 @router.delete("/shop/delete/{shop_id}/", operation_id="deleteShop")
 def delete_shop(shop_id: str, user_id: str = Depends(verify_token), lang: str = Query("en")):
@@ -700,14 +799,30 @@ async def add_offer_api(
         with open(full_path, "wb") as f:
             f.write(file_content)
 
+        expiry_date = datetime.utcnow() + timedelta(days=30)
+
         offer_obj = {
             "offer_id": offer_id,
             "media_type": media_type,
             "media_path": f"{MEDIA_BASE}/{shop_id}/offers/{folder}/{filename}",
             "filename": filename,
-            "title": title, "fee": fee, "start_date": start_date, "end_date": end_date,
-            "percentage": percentage, "description": description,
-            "uploaded_at": datetime.utcnow(), "status": "pending"
+
+            "title": title,
+            "fee": fee,
+            "start_date": start_date,
+            "end_date": end_date,
+            "percentage": percentage,
+            "description": description,
+
+            # ✅ OFFER EXPIRY DATE (1 month or whatever logic)
+            "expiry_date": datetime.utcnow() + timedelta(days=30),
+
+            # ✅ MAIL FLAGS (VERY IMPORTANT)
+            "expiry_mail_3days_sent": False,
+            "expiry_mail_today_sent": False,
+
+            "uploaded_at": datetime.utcnow(),
+            "status": "pending"
         }
 
         if col_offers.find_one({"shop_id": shop_id}, {"_id": 1}):

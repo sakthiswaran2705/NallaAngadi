@@ -25,6 +25,33 @@ def safe(x):
     return x
 
 
+# --------------------------------------------------
+# 🔥 IMAGE RESOLVER (ONLY MAIN_IMAGE)
+# --------------------------------------------------
+def resolve_shop_image_from_search(shop):
+
+
+    # 1️⃣ main_image
+    main_image = shop.get("main_image")
+    if main_image and str(main_image).strip() != "":
+        return main_image
+
+    # 2️⃣ category default image
+    category_ids = shop.get("category", [])
+    if category_ids:
+        try:
+            cat = col_category.find_one(
+                {"_id": ObjectId(category_ids[0])},
+                {"default_shop_image": 1}
+            )
+            if cat and cat.get("default_shop_image"):
+                return cat["default_shop_image"]
+        except:
+            pass
+
+    return None
+
+
 LETTER_MAP = {
     "A": "ஏ", "B": "பி", "C": "சி", "D": "டி", "E": "ஈ",
     "F": "எஃப்", "G": "ஜி", "H": "எச்", "I": "ஐ",
@@ -89,7 +116,7 @@ def translate_dict(obj):
     if isinstance(obj, dict):
         new_obj = {}
         for k, v in obj.items():
-            if k in ("shop_name", "category_image"):
+            if k in ("shop_name", "category_image", "image"):
                 new_obj[k] = v
             else:
                 new_obj[k] = translate_dict(v)
@@ -116,7 +143,6 @@ def get_static(
     if not name:
         return {"data": [], "page": page, "has_more": False}
 
-    # ---------- INPUT NORMALIZATION ----------
     search_name = name
     search_place = place
 
@@ -128,7 +154,6 @@ def get_static(
     name_lower = search_name.lower()
     place_lower = search_place.lower() if search_place else None
 
-    # ---------- CATEGORY MATCH ----------
     matched_categories = list(col_category.find({
         "name": {"$regex": name_lower, "$options": "i"}
     }))
@@ -148,17 +173,13 @@ def get_static(
         ]
     }
 
-    # 1. Fetch ALL Raw Candidates (No Formatting yet)
     shops = list(col_shop.find(query))
 
-    # 2. Filter & Pre-Calculate Ratings
-    # We do this BEFORE translation to speed up performance significantly
     valid_candidates = []
 
     for s in shops:
         sid = str(s["_id"])
 
-        # Check City Filter First
         city = None
         cid = s.get("city_id")
         if ObjectId.is_valid(str(cid)):
@@ -168,7 +189,6 @@ def get_static(
             if city.get("city_name", "").lower() != place_lower:
                 continue
 
-        # Get Ratings
         shop_reviews = list(col_reviews.find({"shop_id": sid}))
         avg_rating = (
             sum(r.get("rating", 0) for r in shop_reviews) / len(shop_reviews)
@@ -182,13 +202,11 @@ def get_static(
             "reviews_count": len(shop_reviews)
         })
 
-    # 3. SORTING (By Rating DESC, then Review Count DESC)
     valid_candidates.sort(
         key=lambda x: (x["avg_rating"], x["reviews_count"]),
         reverse=True
     )
 
-    # 4. PAGINATION (Slicing)
     total_count = len(valid_candidates)
     start_index = (page - 1) * limit
     end_index = start_index + limit
@@ -196,16 +214,12 @@ def get_static(
     sliced_candidates = valid_candidates[start_index:end_index]
     has_more = end_index < total_count
 
-    # 5. FINAL PROCESSING (Translation & Formatting only for the viewable slice)
     final_output = []
 
     for item in sliced_candidates:
         s = item["shop_raw"]
         city = item["city_raw"]
-        avg_rating = item["avg_rating"]
-        reviews_count = item["reviews_count"]
 
-        # Handle Categories
         final_categories = []
         for c in s.get("category", []):
             if ObjectId.is_valid(str(c)):
@@ -220,7 +234,6 @@ def get_static(
                     "category_image": cat.get("category_image")
                 })
 
-        # Handle Shop Name
         shop_name = s.get("shop_name") or ""
         if lang == "ta":
             translated = translate_text_en_to_ta(shop_name)
@@ -233,12 +246,14 @@ def get_static(
         shop_data = safe(s)
         shop_data["shop_name"] = shop_name
 
+        shop_data["main_image"] = resolve_shop_image_from_search(s)
+
         response_item = {
             "shop": shop_data,
             "categories": final_categories,
             "city": safe(city) if city else None,
-            "avg_rating": round(avg_rating, 1),
-            "reviews_count": reviews_count,
+            "avg_rating": round(item["avg_rating"], 1),
+            "reviews_count": item["reviews_count"],
         }
 
         if lang == "ta":
