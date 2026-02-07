@@ -16,7 +16,7 @@
       "name": { "en": "Silver Plan", "ta": "சில்வர் திட்டம்" },
       "type": { "en": "Monthly Plan", "ta": "மாத திட்டம்" },
       "badge": "Silver",
-      "displayPrice": 1,
+      "displayPrice": 200,
       "period": { "en": "/ month", "ta": "/ மாதம்" },
       "dayPrice": "7",
       "days": 30,

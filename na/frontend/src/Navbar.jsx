@@ -360,7 +360,7 @@ function Navbar() {
           {/* 1. LOGO */}
           <div onClick={() => navGo("/")} className="logo-section">
             <img src={logo} alt="Logo" className="logo-img" />
-            <span className="text-logo">{t("Nalla Angadi | Royal Kavery")}</span>
+            <span className="text-logo">{t("Royal Kavery | Nalla Angadi")}</span>
           </div>
 
           {/* 2. NAVIGATION LINKS */}

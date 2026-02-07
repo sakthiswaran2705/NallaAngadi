@@ -903,7 +903,7 @@ function Val() {
                         </div>
                         <div className="mt-4 text-muted small">
                           © {new Date().getFullYear()}
-                          <span className="mx-3 fw-semibold">chola infotech</span>
+                          <span className="mx-3 fw-semibold">chola info Technologies</span>
                           All rights reserved.
                         </div>
 
