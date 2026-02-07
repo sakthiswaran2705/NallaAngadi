@@ -53,7 +53,7 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://localhost:5174",
         
-        "http://localhost:3000",
+       
 
         # 🔹 PRODUCTION
         "https://nallaangadi.com",
