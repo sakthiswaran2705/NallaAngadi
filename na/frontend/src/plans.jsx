@@ -268,7 +268,12 @@ export default function PricingPage() {
               <a href="/terms" style={styles.footerLink}>{TXT.terms[LANG]}</a>
               <a href="/refund" style={styles.footerLink}>{TXT.refund[LANG]}</a>
             </div>
-            <div style={styles.copyright}>© {new Date().getFullYear()} Nalla Angadi. {TXT.rights[LANG]}</div>
+            <div style={styles.copyright}>
+              <span>© {new Date().getFullYear()}</span>
+              <span style={{ marginLeft: "10px" }}>chola info Technologies</span>
+              <span style={{ marginLeft: "10px" }}>{TXT.rights[LANG]}</span>
+            </div>
+
           </div>
         </footer>
       </div>

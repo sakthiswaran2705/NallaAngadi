@@ -15,7 +15,7 @@ PLAN_CONFIG = {
     },
 
     "silver": {
-        "price": 1,       # ₹ (UI)
+        "price": 200,       # ₹ (UI)
         "amount": 20000,    # ✅ paise (Razorpay)
         "currency": "INR",
         "days": 30,
@@ -30,7 +30,7 @@ PLAN_CONFIG = {
             "period": "monthly",
             "interval": 1,
             "amount": 20000,
-            "razorpay_plan_id": "plan_SCq7atHDxZ81mD"
+            "razorpay_plan_id": "plan_SD8sp6u0UQI8YV"
         }
     },
 
