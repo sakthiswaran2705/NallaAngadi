@@ -252,6 +252,7 @@ function ShopDetails() {
           .catch(err => { console.error(err); setLoadingTopRated(false); });
 
   }, [shopId, lang, cityDoc?.city_name]);
+console.log("API_BASE =", API_BASE);
 
   // Update Views
   useEffect(() => {
