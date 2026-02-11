@@ -117,7 +117,8 @@ export default function Auth() {
     setLoading(true);
     try {
       const fd = new FormData();
-      fd.append("emailorphone", loginValue);
+      fd.append("username", loginValue);
+
       fd.append("password", password);
 
       const res = await fetch(`${BACKEND_URL}/login/`, {
