@@ -102,6 +102,84 @@ def send_payment_success_mail(user_id, plan_name, amount, expiry_date):
 
     print("✅ PAYMENT MAIL SENT TO:", user["email"])
 
+def send_autopay_success_mail(user_id, title, message):
+    try:
+        uid = ObjectId(user_id) if isinstance(user_id, str) else user_id
+    except:
+        return
+
+    user = col_users.find_one({"_id": uid})
+    if not user or not user.get("email"):
+        return
+
+    if not is_payment_email_enabled(user):
+        print("🔕 Autopay success mail disabled for:", user.get("email"))
+        return
+
+    body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif;">
+        <p><b>{title} 🎉</b></p>
+
+        <p>{message}</p>
+
+        <p>
+          Your subscription is active and benefits are now available.
+        </p>
+
+        <p>
+          Thank you for choosing <b>NallaAngadi</b>.
+        </p>
+
+        <p>Regards,<br/>NallaAngadi Team</p>
+      </body>
+    </html>
+    """
+
+    send_mail(
+        user["email"],
+        title,
+        body
+    )
+
+    print("✅ Autopay SUCCESS mail sent to:", user["email"])
+def send_autopay_cancel_mail(user_id, title, message):
+    try:
+        uid = ObjectId(user_id) if isinstance(user_id, str) else user_id
+    except:
+        return
+
+    user = col_users.find_one({"_id": uid})
+    if not user or not user.get("email"):
+        return
+
+    if not is_payment_email_enabled(user):
+        print("🔕 Autopay cancel mail disabled for:", user.get("email"))
+        return
+
+    body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif;">
+        <p><b>{title}</b></p>
+
+        <p>{message}</p>
+
+        <p>
+          You can re-enable autopay anytime from your dashboard.
+        </p>
+
+        <p>Regards,<br/>NallaAngadi Team</p>
+      </body>
+    </html>
+    """
+
+    send_mail(
+        user["email"],
+        title,
+        body
+    )
+
+    print("✅ Autopay CANCEL mail sent to:", user["email"])
 
 def send_expiry_mail(to_email, plan_name, expiry_date, when):
     if when == "2days":

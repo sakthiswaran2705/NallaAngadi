@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import Navbar from "./Navbar.jsx";
 import { Icon } from "@blueprintjs/core";
-
+import Footer from "./footer.jsx"
 const API_BASE = import.meta.env.VITE_BACKEND_URL;
 
 // ==========================================================
@@ -160,10 +160,7 @@ export default function Contact() {
                 <div className="fw-bold">cholainfotech26@gmail.com</div>
               </div>
 
-              <div className="d-flex gap-3">
-                <Icon icon="phone" size={20} />
-                <div className="fw-bold">+91 8870462434</div>
-              </div>
+
             </div>
           </div>
 
@@ -221,9 +218,11 @@ export default function Contact() {
                   </div>
                 )}
               </form>
+
             </div>
           </div>
         </div>
+        <Footer/>
       </div>
     </>
   );

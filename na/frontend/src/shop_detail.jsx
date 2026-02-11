@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@blueprintjs/core";
 import Navbar from "./Navbar.jsx";
-
+import Footer from "./footer.jsx"
 const API_BASE = import.meta.env.VITE_BACKEND_URL;
 
 // ==========================================================
@@ -252,13 +252,17 @@ function ShopDetails() {
           .catch(err => { console.error(err); setLoadingTopRated(false); });
 
   }, [shopId, lang, cityDoc?.city_name]);
+console.log("API_BASE =", API_BASE);
 
   // Update Views
   useEffect(() => {
       if (!ready || !shopId) return;
       const viewedKey = `VIEWED_SHOP_${shopId}`;
       const isViewed = sessionStorage.getItem(viewedKey);
-      const endpoint = isViewed ? `${API_BASE}/shop/views/${shopId}` : `${API_BASE}/shop/view/${shopId}`;
+      const endpoint = isViewed
+	  ? `${API_BASE}/shop/views/${shopId}/`
+	  : `${API_BASE}/shop/view/${shopId}/`;
+
       const method = isViewed ? "GET" : "POST";
       fetch(endpoint, { method: method }).then(res => res.json()).then(json => {
           if (json.status) { setViews(json.total_views); if (!isViewed) sessionStorage.setItem(viewedKey, "1"); }
@@ -641,6 +645,7 @@ function ShopDetails() {
             </motion.div>
         )}
       </AnimatePresence>
+        <Footer/>
     </div>
   );
 }

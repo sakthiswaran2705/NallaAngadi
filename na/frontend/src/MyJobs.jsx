@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { authenticatedFetch } from "./authFetch";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
+import Footer from "./footer.jsx"
 
 // --- CONFIG ---
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
@@ -451,9 +452,10 @@ export default function MyJobs() {
              </div>
 
           </div>
+
         </div>
       )}
-
+     <Footer/>
     </div>
   );
 }

@@ -26,7 +26,7 @@ from contact_save import  router as contact_router
 import threading
 import time
 from plan_expire_action import process_expired_plans
-
+from user_city_add import router as user_city_add_router
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
@@ -58,11 +58,6 @@ app.add_middleware(
 )
 
 
-
-
-
-
-
 # -------------------- ROUTERS --------------------
 app.include_router(search_router)
 app.include_router(owner_router)
@@ -79,6 +74,7 @@ app.include_router(otp_router)
 app.include_router(notification_settings_router)
 app.include_router(shop_views_router)
 app.include_router(get_top)
+app.include_router(user_city_add_router)
 # -------------------- ROOT --------------------
 @app.get("/")
 def root():

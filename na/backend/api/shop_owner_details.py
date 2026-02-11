@@ -183,8 +183,12 @@ def register(
         "firstname": firstname,
         "lastname": lastname,
         "email": email,
-        "phonenumber": phone,   # ✅ stored as int
+        "phonenumber": phone,
         "password": hash_password(password),
+
+        # ✅ IMPORTANT
+        "status": False,  # user inactive
+
         "created_at": datetime.utcnow(),
         "notification_settings": {
             "email": True,
@@ -219,6 +223,13 @@ def login(
         return {
             "status": False,
             "message": "Invalid login credentials"
+        }
+
+
+    if user.get("status") is False:
+        return {
+            "status": False,
+            "message": "Account not activated. Please wait for approval."
         }
 
     u_id = str(user["_id"])
@@ -1062,7 +1073,7 @@ def get_notifications(user_id: str = Depends(verify_token), lang: str = Query("e
         u_oid = ObjectId(user_id)
     except:
         return {"status": False, "message": "Invalid user"}
-    notifs = list(col_notifications.find({"user_id": u_oid}).sort("created_at", -1).limit(20))
+    notifs = list(col_notifications.find({"user_id": u_oid}).sort("created_at", -1))
     return {"status": True, "data": translate_response_data(safe(notifs), lang)}
 
 

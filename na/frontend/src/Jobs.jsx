@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar.jsx";
+import Footer from "./footer.jsx";
 const API_BASE = import.meta.env.VITE_BACKEND_URL;
 
 export default function Jobs() {
@@ -24,21 +25,18 @@ export default function Jobs() {
 
   // Listen for language changes
   useEffect(() => {
-      const handler = () => setLang(getLang());
-      window.addEventListener("LANG_CHANGE", handler);
-      return () => window.removeEventListener("LANG_CHANGE", handler);
-    }, []);
+    const handler = () => setLang(getLang());
+    window.addEventListener("LANG_CHANGE", handler);
+    return () => window.removeEventListener("LANG_CHANGE", handler);
+  }, []);
 
   // ==========================================
   // 1. FILTER CHANGE (Reset & Debounce)
-  // When inputs change, we reset to Page 1 and clear jobs
   // ==========================================
   useEffect(() => {
-    // Immediate visual feedback if typing
     if (cityInput || searchInput) setLoading(true);
 
     const delayDebounceFn = setTimeout(() => {
-      // Reset logic: New search means page 1, clear old data
       setPage(1);
       setHasMore(true);
       fetchJobs(1, true);
@@ -47,12 +45,10 @@ export default function Jobs() {
     return () => clearTimeout(delayDebounceFn);
   }, [cityInput, searchInput, lang]);
 
-
   // ==========================================
   // 2. SCROLL LISTENER (Infinite Scroll)
   // ==========================================
   const handleScroll = useCallback(() => {
-    // Check if user has scrolled to the bottom
     if (
       window.innerHeight + document.documentElement.scrollTop + 100 >=
       document.documentElement.offsetHeight
@@ -72,7 +68,6 @@ export default function Jobs() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [handleScroll]);
 
-
   // ==========================================
   // 3. FETCH DATA FUNCTION
   // ==========================================
@@ -83,8 +78,6 @@ export default function Jobs() {
       if (cityInput) params.append("city_name", cityInput);
       if (searchInput) params.append("job_title", searchInput);
       params.append("lang", lang);
-
-      // Pagination Params
       params.append("page", pageNum);
       params.append("limit", 10);
 
@@ -93,15 +86,14 @@ export default function Jobs() {
 
       if (data.status && data.jobs.length > 0) {
         if (isNewSearch) {
-          setJobs(data.jobs); // Replace all jobs
+          setJobs(data.jobs);
         } else {
-          setJobs((prev) => [...prev, ...data.jobs]); // Append new jobs
+          setJobs((prev) => [...prev, ...data.jobs]);
         }
-        // If we got fewer than 10 jobs, we reached the end
         setHasMore(data.jobs.length === 10);
       } else {
-        if (isNewSearch) setJobs([]); // No results found
-        setHasMore(false); // Stop trying to load more
+        if (isNewSearch) setJobs([]);
+        setHasMore(false);
       }
     } catch (e) {
       console.error(e);
@@ -109,75 +101,81 @@ export default function Jobs() {
     setLoading(false);
   };
 
-
   return (
     <div style={styles.page}>
-        <Navbar />
-      {/* HEADER */}
-      <div style={styles.navBar}>
-        <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
-            <button onClick={() => navigate(-1)} style={styles.backBtn}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-            </button>
-            <h2 style={styles.navTitle}>
-                {lang === "en" ? "NallaAngadi Find Jobs" : "வேலை தேடல்"}
-            </h2>
-        </div>
-      </div>
+      <Navbar />
 
       <div style={styles.container}>
 
-        {/* FILTERS SECTION */}
-        <div style={styles.filterContainer}>
-          {/* CITY INPUT */}
-          <div style={styles.inputWrapper}>
-             <span style={styles.iconLabel}>📍</span>
-             <input
-              style={styles.input}
-              placeholder={lang === "en" ? "Enter City " : "ஊர் பெயர்"}
-              value={cityInput}
-              onChange={(e) => setCityInput(e.target.value)}
-            />
-          </div>
+        {/* HEADER SECTION (Title & Search) */}
+        <div style={styles.headerSection}>
+          <h1 style={styles.pageTitle}>
+            {lang === "en" ? "Search Jobs" : "வேலை தேடல்"}
+          </h1>
+          <p style={styles.subTitle}>
+            {lang === "en"
+              ? "Find the perfect job for you"
+              : "உங்களுக்கான சரியான வேலையைக் கண்டறியவும்"}
+          </p>
 
-          {/* JOB SEARCH INPUT */}
-          <div style={styles.inputWrapper}>
-             <span style={styles.iconLabel}>🔍</span>
-             <input
-              style={styles.input}
-              placeholder={lang === "en" ? "Job Title " : "வேலை "}
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-            />
+          {/* FILTERS CONTAINER */}
+          <div style={styles.filterContainer}>
+            {/* CITY INPUT */}
+            <div style={styles.inputWrapper}>
+              <span style={styles.iconLabel}>📍</span>
+              <input
+                style={styles.input}
+                placeholder={lang === "en" ? "City (e.g. Chennai)" : "ஊர் பெயர்"}
+                value={cityInput}
+                onChange={(e) => setCityInput(e.target.value)}
+              />
+            </div>
+
+            {/* DIVIDER (Visual only for desktop) */}
+            <div style={styles.verticalDivider}></div>
+
+            {/* JOB SEARCH INPUT */}
+            <div style={styles.inputWrapper}>
+              <span style={styles.iconLabel}>🔍</span>
+              <input
+                style={styles.input}
+                placeholder={lang === "en" ? "Job Title (e.g. Driver)" : "வேலை (எ.கா ஓட்டுநர்)"}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+              />
+            </div>
           </div>
         </div>
 
         {/* RESULTS INFO */}
         <div style={styles.resultsInfo}>
-            {loading && page === 1 ? (
-                <span style={{color: '#0d6efd'}}>
-                    {lang === "en" ? "Searching..." : "தேடிக்கொண்டிருக்கிறது..."}
-                </span>
-            ) : (
-                <span>
-                     {jobs.length > 0 ? (
-                        <>Showing {jobs.length} jobs</>
-                     ) : (
-                        <>{!loading && "No jobs found"}</>
-                     )}
-                </span>
-            )}
+          {loading && page === 1 ? (
+            <span style={{ color: "#0d6efd", fontWeight: "600" }}>
+              {lang === "en" ? "Searching..." : "தேடிக்கொண்டிருக்கிறது..."}
+            </span>
+          ) : (
+            <span>
+              {jobs.length > 0 ? (
+                <>Found {jobs.length} jobs</>
+              ) : (
+                <>{!loading && ""}</>
+              )}
+            </span>
+          )}
         </div>
 
-        {/* JOB LIST */}
+        {/* JOB LIST GRID */}
         {loading && page === 1 && jobs.length === 0 ? (
           <div style={styles.centerBox}>
             <div style={styles.spinner}></div>
           </div>
         ) : jobs.length === 0 && !loading ? (
           <div style={styles.centerBox}>
+            <div style={{ fontSize: "50px", marginBottom: "10px" }}>📄</div>
             <p style={styles.empty}>
-                {lang === "en" ? "No jobs found matching your search." : "உங்கள் தேடலுக்கு ஏற்ற வேலைகள் இல்லை."}
+              {lang === "en"
+                ? "No jobs found matching your search."
+                : "உங்கள் தேடலுக்கு ஏற்ற வேலைகள் இல்லை."}
             </p>
           </div>
         ) : (
@@ -187,6 +185,14 @@ export default function Jobs() {
                 key={job._id}
                 style={styles.card}
                 onClick={() => navigate(`/job/${job._id}?lang=${lang}`)}
+                onMouseEnter={(e) => {
+                   e.currentTarget.style.transform = "translateY(-3px)";
+                   e.currentTarget.style.boxShadow = "0 8px 15px rgba(0,0,0,0.1)";
+                }}
+                onMouseLeave={(e) => {
+                   e.currentTarget.style.transform = "translateY(0)";
+                   e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.03)";
+                }}
               >
                 <div style={styles.cardHeader}>
                   <div>
@@ -207,88 +213,197 @@ export default function Jobs() {
               </div>
             ))}
 
-            {/* LOADING SPINNER AT BOTTOM FOR INFINITE SCROLL */}
+            {/* LOADING SPINNER AT BOTTOM */}
             {loading && page > 1 && (
-               <div style={{...styles.centerBox, padding: '20px'}}>
-                  <div style={{...styles.spinner, width: '20px', height: '20px'}}></div>
-               </div>
+              <div style={{ ...styles.centerBox, padding: "20px" }}>
+                <div
+                  style={{ ...styles.spinner, width: "20px", height: "20px" }}
+                ></div>
+              </div>
             )}
 
             {/* END OF LIST MESSAGE */}
             {!hasMore && jobs.length > 0 && (
-                <div style={{textAlign: 'center', padding: '20px', color: '#999', fontSize: '13px'}}>
-                    {lang === "en" ? "No more jobs" : "வேலைகள் முடிந்தது"}
-                </div>
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "20px",
+                  color: "#999",
+                  fontSize: "13px",
+                }}
+              >
+                {lang === "en" ? "End of results" : "வேலைகள் முடிந்தது"}
+              </div>
             )}
           </div>
         )}
       </div>
+      <Footer />
     </div>
   );
 }
 
 /* ================= STYLES ================= */
 const styles = {
-  page: { background: "#f0f2f5", minHeight: "100vh", fontFamily: "'Segoe UI', sans-serif,Noto Sans Tamil", paddingBottom: "40px" },
-  navBar: { position: "sticky", top: 0, zIndex: 100, background: "#fff", padding: "15px 20px", display: "flex", justifyContent: "space-between", boxShadow: "0 2px 5px rgba(0,0,0,0.05)" },
-  backBtn: { background: "transparent", border: "none", cursor: "pointer", fontSize: "16px",fontFamily: " sans-serif,Noto Sans Tamil" },
-  navTitle: {
-      position: "absolute",
-      left: "50%",
-      transform: "translateX(-50%)",
-      fontFamily: "Noto Sans Tamil",
-      margin: 0,
-      fontSize: "18px",
-      fontWeight: "700",
-      color: "#333",
-    },
-  container: { padding: "20px", maxWidth: "600px", margin: "0 auto" },
-  filterContainer: {
+  page: {
+    background: "#f0f2f5",
+    minHeight: "100vh",
+    fontFamily: "'Segoe UI', sans-serif, Noto Sans Tamil",
     display: "flex",
     flexDirection: "column",
-    gap: "10px",
-    marginBottom: "15px",
+  },
+  container: {
+    padding: "20px",
+    width: "100%",
+    maxWidth: "800px", // Reduced width for better center focus
+    margin: "0 auto",
+    flex: 1,
+  },
+
+  // Header & Search Styles
+  headerSection: {
+    textAlign: "center",
+    marginBottom: "30px",
+    paddingTop: "20px",
+  },
+  pageTitle: {
+    fontSize: "28px",
+    fontWeight: "800",
+    color: "#1a1a1a",
+    marginBottom: "5px",
+  },
+  subTitle: {
+    fontSize: "14px",
+    color: "#666",
+    marginBottom: "25px",
+  },
+  filterContainer: {
+    display: "flex",
+    flexWrap: "wrap", // Allows stacking on mobile
+    alignItems: "center",
     background: "#fff",
-    padding: "15px",
-    borderRadius: "12px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.05)"
+    padding: "8px",
+    borderRadius: "50px", // Rounded pill shape
+    boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+    border: "1px solid #eee",
   },
   inputWrapper: {
-    position: "relative",
+    flex: "1 1 200px", // Grow and shrink, min-width 200px
     display: "flex",
     alignItems: "center",
-    background: "#f8f9fa",
-    borderRadius: "8px",
-    border: "1px solid #ddd",
+    padding: "5px 15px",
+  },
+  verticalDivider: {
+    width: "1px",
+    height: "30px",
+    background: "#eee",
+    display: "block", // Hidden on mobile via media query ideally, but keeping simple
   },
   iconLabel: {
-    paddingLeft: "12px",
     fontSize: "18px",
+    marginRight: "10px",
+    opacity: "0.7",
   },
   input: {
     width: "100%",
-    padding: "12px 10px",
+    padding: "10px 5px",
     border: "none",
     background: "transparent",
     outline: "none",
     fontSize: "15px",
+    color: "#333",
   },
+
+  // Results & Grid
   resultsInfo: {
     marginBottom: "15px",
     fontSize: "14px",
     color: "#666",
-    textAlign: "right"
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "0 5px",
   },
-  grid: { display: "flex", flexDirection: "column", gap: "15px" },
-  card: { background: "#fff", borderRadius: "12px", padding: "18px", boxShadow: "0 2px 4px rgba(0,0,0,0.03)", cursor: "pointer", transition: "0.2s" },
-  cardHeader: { display: "flex", justifyContent: "space-between", marginBottom: "10px" },
-  jobTitle: { margin: "0 0 5px 0", fontSize: "16px", fontWeight: "700", color: "#222" },
-  company: { margin: 0, fontSize: "13px", color: "#666" },
-  salaryBadge: { background: "#e6f4ea", color: "#1e7e34", padding: "4px 8px", borderRadius: "4px", fontSize: "13px", fontWeight: "600", height: "fit-content" },
-  divider: { height: "1px", background: "#eee", margin: "10px 0" },
-  cardFooter: { display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#555" },
-  metaItem: { display: "flex", alignItems: "center", gap: "5px" },
-  centerBox: { textAlign: "center", padding: "40px 0", color: "#999" },
-  spinner: { margin: "0 auto", width: "24px", height: "24px", border: "3px solid #eee", borderTop: "3px solid #0d6efd", borderRadius: "50%", animation: "spin 1s linear infinite" },
-  empty: { fontSize: "15px" },
+  grid: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "15px",
+  },
+
+  // Card Styles
+  card: {
+    background: "#fff",
+    borderRadius: "16px",
+    padding: "20px",
+    boxShadow: "0 2px 4px rgba(0,0,0,0.03)",
+    cursor: "pointer",
+    transition: "all 0.3s ease",
+    border: "1px solid transparent",
+  },
+  cardHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: "12px",
+  },
+  jobTitle: {
+    margin: "0 0 6px 0",
+    fontSize: "18px",
+    fontWeight: "700",
+    color: "#222",
+  },
+  company: {
+    margin: 0,
+    fontSize: "14px",
+    color: "#666",
+    fontWeight: "500",
+  },
+  salaryBadge: {
+    background: "#e8f5e9",
+    color: "#2e7d32",
+    padding: "6px 12px",
+    borderRadius: "20px",
+    fontSize: "13px",
+    fontWeight: "700",
+    whiteSpace: "nowrap",
+  },
+  divider: {
+    height: "1px",
+    background: "#f0f0f0",
+    margin: "12px 0",
+  },
+  cardFooter: {
+    display: "flex",
+    justifyContent: "space-between",
+    fontSize: "13px",
+    color: "#555",
+  },
+  metaItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    background: "#f8f9fa",
+    padding: "4px 8px",
+    borderRadius: "6px",
+  },
+
+  // Utils
+  centerBox: {
+    textAlign: "center",
+    padding: "60px 0",
+    color: "#999",
+  },
+  spinner: {
+    margin: "0 auto",
+    width: "30px",
+    height: "30px",
+    border: "3px solid #eee",
+    borderTop: "3px solid #0d6efd",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
+  },
+  empty: {
+    fontSize: "16px",
+    color: "#555",
+  },
 };

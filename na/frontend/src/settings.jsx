@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion"; // Import Framer Motion
 import { Icon } from "@blueprintjs/core"; // Import Blueprint Icon
 import Navbar from "./Navbar.jsx";
-
+import Footer from "./footer.jsx"
 const API_BASE = import.meta.env.VITE_BACKEND_URL;
 
 // --- Simple SVG Icons for the Settings UI ---
@@ -420,6 +420,7 @@ function Settings() {
           @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
           .form-control:focus { box-shadow: none; border: 2px solid #0d6efd; background-color: #fff; }
         `}</style>
+          <Footer/>
       </div>
   );
 }

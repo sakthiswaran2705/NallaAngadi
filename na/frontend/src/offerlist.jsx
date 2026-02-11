@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Navbar from "./Navbar.jsx";
+import Footer from "./footer.jsx"
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const LANG = localStorage.getItem("LANG") || "en";
 
@@ -208,9 +209,7 @@ export default function OffersList() {
         <Navbar/>
         <div style={styles.pageContainer}>
           <div style={styles.header}>
-            <button onClick={goBack} style={styles.backButton}>
-              ← {TXT.back[LANG]}
-            </button>
+
 
             <h2 style={styles.title}>
               {TXT.exclusiveOffers[LANG]} {displayCity}
@@ -270,6 +269,7 @@ export default function OffersList() {
               </div>
           )}
         </div>
+        <Footer/>
       </>
   );
 }
