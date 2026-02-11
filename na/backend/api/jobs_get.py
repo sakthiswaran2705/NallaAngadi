@@ -50,7 +50,10 @@ def to_ta(text):
     except:
         return text
 
-
+def capitalize_first(text):
+    if isinstance(text, str) and text:
+        return text[0].upper() + text[1:]
+    return text
 # ===============================
 # GET JOBS (PAGINATED)
 # ===============================
@@ -59,8 +62,8 @@ def get_jobs(
         city_name: str | None = Query(None),
         job_title: str | None = Query(None),
         lang: str = Query("en"),
-        page: int = Query(1, ge=1),  # Default page 1, minimum 1
-        limit: int = Query(10, ge=1, le=50)  # Default 10 items, max 50
+        page: int = Query(1, ge=1),
+        limit: int = Query(10, ge=1, le=50)
 ):
     query = {}
 
@@ -70,24 +73,22 @@ def get_jobs(
     if job_title:
         query["job_title"] = {"$regex": job_title, "$options": "i"}
 
-    # --- PAGINATION LOGIC ---
     skip = (page - 1) * limit
 
-    # Apply skip and limit to the cursor
     cursor = col_jobs.find(query).sort("created_at", -1).skip(skip).limit(limit)
     jobs = list(cursor)
 
     output = []
+    fields = ["job_title", "job_description", "shop_name", "address", "city_name"]
+
     for job in jobs:
         job = safe(job)
 
-        # Only translate the 10 items we fetched (Huge performance boost)
-        if lang == "ta":
-            job["job_title"] = to_ta(job.get("job_title"))
-            job["job_description"] = to_ta(job.get("job_description"))
-            job["shop_name"] = to_ta(job.get("shop_name"))
-            job["address"] = to_ta(job.get("address"))
-            job["city_name"] = to_ta(job.get("city_name"))
+        for field in fields:
+            if lang == "ta":
+                job[field] = to_ta(job.get(field))
+            else:
+                job[field] = capitalize_first(job.get(field))
 
         output.append(job)
 
@@ -100,9 +101,13 @@ def get_jobs(
     }
 
 
+
 # ===============================
 # GET SINGLE JOB
 # ===============================
+
+
+
 @router.get("/job/{job_id}/", operation_id="getJobById")
 def get_job_by_id(job_id: str, lang: str = Query("en")):
     try:
@@ -119,6 +124,14 @@ def get_job_by_id(job_id: str, lang: str = Query("en")):
 
     job = safe(job)
 
+    # 🔹 Capitalize first letter
+    job["job_title"] = capitalize_first(job.get("job_title"))
+    job["job_description"] = capitalize_first(job.get("job_description"))
+    job["shop_name"] = capitalize_first(job.get("shop_name"))
+    job["address"] = capitalize_first(job.get("address"))
+    job["city_name"] = capitalize_first(job.get("city_name"))
+
+    # 🔹 Tamil Translation
     if lang == "ta":
         job["job_title"] = to_ta(job.get("job_title"))
         job["job_description"] = to_ta(job.get("job_description"))
