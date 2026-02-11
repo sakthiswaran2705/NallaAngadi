@@ -204,10 +204,10 @@ def register(
 
 @router.post("/login/", operation_id="loginUser")
 def login(
-    emailorphone: str = Form(...),
+    username: str = Form(...),
     password: str = Form(...)
 ):
-    identifier = emailorphone.strip()
+    identifier = username.strip()
 
     # 🔍 Check whether input is phone number or email
     if identifier.isdigit():
