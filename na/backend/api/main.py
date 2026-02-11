@@ -48,14 +48,6 @@ app.mount("/media", StaticFiles(directory="media"), name="media")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        # 🔹 LOCAL DEV
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        
-       
-
-        # 🔹 PRODUCTION
         "https://nallaangadi.com",
         "https://www.nallaangadi.com",
         "https://api.nallaangadi.com",
