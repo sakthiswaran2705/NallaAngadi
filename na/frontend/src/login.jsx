@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom"; // Added useLocatio
 import { motion, AnimatePresence } from "framer-motion"; // Added Animation
 import { Icon } from "@blueprintjs/core"; // Added Icon
 import Navbar from "./Navbar.jsx";
-
+import Footer from "./footer.jsx"
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
 
 // --- POPUP VARIANTS ---
@@ -274,6 +274,11 @@ export default function Auth() {
                 --info: #3b82f6;
                 --text-dark: #1e293b;
             }
+            footer {
+            background: transparent !important;
+            box-shadow: none !important;
+            border-top: none !important;
+          }
 
             .custom-popup-toast {
                 position: fixed; top: 20px; right: 20px; z-index: 999999;
@@ -560,6 +565,10 @@ export default function Auth() {
             </motion.div>
         )}
       </AnimatePresence>
+      <div style={{ background: "transparent" }}>
+    <Footer />
+  </div>
+
     </div>
   );
 }
@@ -575,16 +584,15 @@ const styles = {
     width: "100%",
     minHeight: "100vh",
   },
+
   authContainer: {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    minHeight: "calc(100vh - 64px)",
-    background: "linear-gradient(135deg, #eef2f7, #f9fbfd)",
-    fontFamily: "Roboto, Arial, sans-serif",
+    flex: 1,  // 🔥 important
     padding: "20px",
-    boxSizing: "border-box",
   },
+
   card: {
     width: "100%",
     maxWidth: "420px",

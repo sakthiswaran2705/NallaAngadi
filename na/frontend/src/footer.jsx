@@ -13,18 +13,17 @@ const Footer = () => {
             <style>
                 {`
                 .footer-wrapper {
-                    borderTop: "1px solid #e5e7eb",
+                    border-top: 1px solid #e5e7eb;
                     background: #ffffff;
                     margin-top: 60px;
                     padding-top: 60px;
                     padding-bottom: 40px;
                     text-align: center;
                 }
-
+                
                 .footer-brand {
                     font-size: 1.8rem;
                     font-weight: 800;
-                    color: #0072ff; /* var(--primary-dark) */
                     letter-spacing: -1px;
                     margin-bottom: 5px;
                     display: inline-block;
@@ -32,7 +31,7 @@ const Footer = () => {
                     -webkit-background-clip: text;
                     -webkit-text-fill-color: transparent;
                 }
-
+                
                 .footer-nav {
                     margin-top: 25px;
                     margin-bottom: 30px;
@@ -41,49 +40,50 @@ const Footer = () => {
                     justify-content: center;
                     gap: 30px;
                 }
-
+                
                 .footer-link {
                     font-size: 0.95rem;
                     color: #64748b;
-                    text-decoration: none;
+                    text-decoration: none !important;
                     transition: all 0.3s ease;
                     font-weight: 500;
                     position: relative;
+                    display: inline-block;
                 }
-
+                
                 .footer-link:hover {
                     color: #0072ff;
                     transform: translateY(-2px);
+                    text-decoration: none !important;
                 }
-
-                /* Underline animation on hover */
+                
+                /* Single underline animation */
                 .footer-link::after {
                     content: '';
                     position: absolute;
+                    left: 0;
+                    bottom: -4px;
                     width: 0;
                     height: 2px;
-                    bottom: -4px;
-                    left: 0;
                     background-color: #0072ff;
                     transition: width 0.3s ease;
                 }
-
+                
                 .footer-link:hover::after {
                     width: 100%;
                 }
-
+                
                 .copyright-text {
                     color: #94a3b8;
                     font-size: 0.85rem;
                     border-top: 1px solid #f1f5f9;
                     padding-top: 20px;
                     margin-top: 20px;
-                    width: 100%;
                     max-width: 600px;
                     margin-left: auto;
                     margin-right: auto;
                 }
-
+                
                 @media (max-width: 768px) {
                     .footer-nav {
                         gap: 15px;
@@ -93,6 +93,7 @@ const Footer = () => {
                         padding-top: 40px;
                     }
                 }
+
                 `}
             </style>
 
