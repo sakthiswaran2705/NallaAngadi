@@ -51,6 +51,7 @@ app.add_middleware(
         "https://nallaangadi.com",
         "https://www.nallaangadi.com",
         "https://api.nallaangadi.com",
+        "http://localhost:8081"
     ],
     allow_credentials=True,
     allow_methods=["*"],
