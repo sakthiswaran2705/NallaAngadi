@@ -4,7 +4,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
-
+import Footer from "./footer.jsx";
 import Navbar from "./Navbar.jsx";
 import heroBgImage from "./image_cc786f.jpg";
 
@@ -888,27 +888,8 @@ function Val() {
                     </div>
                 </div>
 
-                {/* FOOTER */}
-                <footer className="text-center mt-5 pt-5 pb-5">
-                    <div className="container">
-                        <h4 style={{fontWeight:800, color: 'var(--primary-dark)', letterSpacing: '-1px'}}>Nalla Angadi</h4>
-                        <div className="text-muted small mt-1 mb-4">{t("Discover. Connect. Grow.")}</div>
 
-                        <div className="footer-nav">
-                            <a href="/contact" className="footer-link">{t("Contact Us")}</a>
-                            <a href="/shipping" className="footer-link">{t("Shipping Policy")}</a>
-                            <a href="/privacy" className="footer-link">{t("Privacy Policy")}</a>
-                            <a href="/terms" className="footer-link">{t("Terms & Conditions")}</a>
-                            <a href="/refund" className="footer-link">{t("Cancellation & Refund Policy")}</a>
-                        </div>
-                        <div className="mt-4 text-muted small">
-                          © {new Date().getFullYear()}
-                          <span className="mx-3 fw-semibold">chola info Technologies</span>
-                          All rights reserved.
-                        </div>
-
-                    </div>
-                </footer>
+                <Footer/>
             </div>
 
             {/* POPUP COMPONENT */}

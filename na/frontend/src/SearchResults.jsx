@@ -4,7 +4,7 @@ import { Button, Spinner, Icon, NonIdealState, OverlayToaster, Position } from "
 import { motion, AnimatePresence } from "framer-motion";
 import "bootstrap/dist/css/bootstrap.min.css";
 import Navbar from "./Navbar.jsx";
-
+import Footer from "./footer.jsx"
 /* ---------------- "FLOATING PILL" DESIGN SYSTEM ---------------- */
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');
@@ -409,6 +409,7 @@ export default function SearchResults() {
         )}
         {loadingMore && <div className="text-center p-4"><Spinner size={30} intent="primary" /></div>}
       </div>
+      <Footer/>
     </>
   );
 }

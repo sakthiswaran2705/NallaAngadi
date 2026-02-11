@@ -4,7 +4,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import {
   User, MapPin, Briefcase, Phone, Mail,
   Heart, Languages, CheckCircle2, ArrowRight, X, Building2,
-  HeartHandshake
+  HeartHandshake, Home
 } from 'lucide-react';
 
 // Ensure you have this JSON file or replace with empty array []
@@ -30,12 +30,14 @@ const UravugalForm = () => {
 
   const initialFormState = {
     name: '', pattapaiyar: '', native_place: '',
-
-
     marital_status: '',
 
     father_name: '', father_pattapaiyar: '', father_native_place: '',
     mother_name: '', mother_pattapaiyar: '', mother_native_place: '',
+
+    // ✅ Added Address to state
+    address: '',
+
     occupation: [],
     business_running: 'no',
     business_name: '',
@@ -56,10 +58,12 @@ const UravugalForm = () => {
       personalInfo: "Personal Information",
       fatherDetails: "Father Details",
       motherDetails: "Mother Details",
-      contactWork: "Contact & Work",
+      contactWork: "Contact, Address & Work", // Updated Title
       name: "Full Name",
       pattapaiyar: "Pattapaiyar",
       native: "Native Place",
+      // ✅ Added Address Label
+      address: "Current Residential Address",
       occupation: "Occupation (Select or Type New)",
       searchOcc: "Type occupation...",
       businessQuestion: "Are you running a business?",
@@ -73,7 +77,6 @@ const UravugalForm = () => {
       successMsg: "Details registered successfully.",
       addAnother: "Add Another",
 
-      // ✅ NEW LABELS
       maritalStatus: "Marital Status",
       selectMarital: "-- Select Status --",
       msOptions: {
@@ -85,17 +88,19 @@ const UravugalForm = () => {
       }
     },
     ta: {
-      titleMain: "ராயல் காவேரி |  நல்ல அங்காடி",
+      titleMain: "ராயல் காவேரி &  நல்ல அங்காடி",
       titleSub: "- உறவுகள்",
       subtitle: "உறவுகள் படிவம்",
       langBtn: "English",
       personalInfo: "தனிப்பட்ட விவரங்கள்",
       fatherDetails: "தந்தையின் விவரங்கள்",
       motherDetails: "தாயின் விவரங்கள்",
-      contactWork: "தொடர்பு மற்றும் பணி",
+      contactWork: "தொடர்பு, முகவரி மற்றும் பணி", // Updated Title
       name: "முழு பெயர்",
       pattapaiyar: "பட்டப்பெயர்",
       native: "சொந்த ஊர்",
+      // ✅ Added Address Label
+      address: "தற்போதைய வீட்டு முகவரி",
       occupation: "தொழில் (தேர்வு செய்யலாம் அல்லது தட்டச்சு செய்யலாம்)",
       searchOcc: "தொழிலை தட்டச்சு செய்யவும்...",
       businessQuestion: "நீங்கள் தொழில் செய்கிறீர்களா?",
@@ -109,7 +114,6 @@ const UravugalForm = () => {
       successMsg: "வெற்றிகரமாக பதிவு செய்யப்பட்டது.",
       addAnother: "மேலும் சேர்க்க",
 
-      // ✅ NEW LABELS
       maritalStatus: "திருமண நிலை",
       selectMarital: "-- நிலையைத் தேர்ந்தெடுக்கவும் --",
       msOptions: {
@@ -188,16 +192,19 @@ const UravugalForm = () => {
         { field: 'name', label: curT.name },
         { field: 'pattapaiyar', label: curT.pattapaiyar },
         { field: 'native_place', label: curT.native },
-
-        // ✅ VALIDATION: Checks if marital status is selected
         { field: 'marital_status', label: curT.maritalStatus },
 
         { field: 'father_name', label: `${curT.name} (Father)` },
         { field: 'father_pattapaiyar', label: `${curT.pattapaiyar} (Father)` },
         { field: 'father_native_place', label: `${curT.native} (Father)` },
+
         { field: 'mother_name', label: `${curT.name} (Mother)` },
         { field: 'mother_pattapaiyar', label: `${curT.pattapaiyar} (Mother)` },
         { field: 'mother_native_place', label: `${curT.native} (Mother)` },
+
+        // ✅ Compulsory Address Validation
+        { field: 'address', label: curT.address },
+
         { field: 'contact_number', label: curT.mobile },
     ];
 
@@ -273,7 +280,7 @@ const UravugalForm = () => {
     <div className="min-vh-100 d-flex justify-content-center align-items-center py-5"
           style={{
             background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-            fontFamily: "'Noto Sans Tamil', sans-serif" // ✅ FONT APPLIED HERE
+            fontFamily: "'Noto Sans Tamil', sans-serif"
           }}>
 
       <div className="container">
@@ -334,7 +341,6 @@ const UravugalForm = () => {
                       <BootstrapInput label={curT.native} name="native_place" value={formData.native_place} onChange={handleChange} required icon={<MapPin size={18}/>} />
                     </div>
 
-                    {/* ✅ COMPULSORY MARITAL STATUS */}
                     <div className="col-md-6">
                         <BootstrapSelect
                             label={curT.maritalStatus}
@@ -394,6 +400,18 @@ const UravugalForm = () => {
                     {curT.contactWork}
                   </h6>
                   <div className="row g-3 mb-4">
+
+                    {/* ✅ ADDRESS FIELD (Compulsory) */}
+                    <div className="col-12 mb-3">
+                      <BootstrapTextArea
+                        label={curT.address}
+                        name="address"
+                        value={formData.address}
+                        onChange={handleChange}
+                        required={true}
+                        icon={<Home size={18}/>}
+                      />
+                    </div>
 
                     {/* OCCUPATION DROPDOWN */}
                     <div className="col-12 mb-2" ref={wrapperRef}>
@@ -524,7 +542,29 @@ const BootstrapInput = ({ label, name, value, onChange, icon, type = "text", req
   );
 };
 
-// ✅ UPDATED: Reusable Select Component with Required validation visual
+// ✅ NEW Reusable Text Area Component for Address
+const BootstrapTextArea = ({ label, name, value, onChange, icon, required }) => {
+  return (
+    <div className="input-group">
+      {icon && <span className="input-group-text bg-light border-end-0 text-secondary" style={{backgroundColor: '#f8f9fa'}}>{icon}</span>}
+      <div className="form-floating flex-grow-1">
+        <textarea
+          className={`form-control ${icon ? 'border-start-0' : ''}`}
+          id={name}
+          name={name}
+          value={value}
+          onChange={onChange}
+          placeholder={label}
+          required={required}
+          style={{ boxShadow: 'none', height: '80px' }}
+        />
+        <label htmlFor={name} className="text-muted">{label} {required && '*'}</label>
+      </div>
+    </div>
+  );
+};
+
+// Reusable Select Component
 const BootstrapSelect = ({ label, name, value, onChange, icon, children, required }) => {
   return (
     <div className="input-group" style={{ height: '58px' }}>
@@ -536,7 +576,7 @@ const BootstrapSelect = ({ label, name, value, onChange, icon, children, require
             name={name}
             value={value}
             onChange={onChange}
-            required={required} // ✅ Enables browser validation
+            required={required}
             style={{ boxShadow: 'none' }}
         >
             {children}

@@ -8,15 +8,6 @@ col_offers = db["offers"]
 
 
 def lock_user_resources(user_id):
-    """
-    When plan expires:
-    - shop.status -> pending_offer
-    - offers (TOP LEVEL) status -> pending_offer
-    """
-
-    #print(" Locking resources for user:", user_id)
-
-    # Build safe query for string + ObjectId user_id
     query = {
         "$or": [
             {"user_id": user_id},
@@ -24,20 +15,15 @@ def lock_user_resources(user_id):
         ]
     }
 
-    # 🏪 Update SHOP status
-    shop_res = col_shops.update_many(
+    col_shops.update_many(
         query,
         {"$set": {"status": "payment_pending"}}
     )
 
-    # 🎁 Update OFFERS (ONLY OUTER status)
-    offer_res = col_offers.update_many(
+    col_offers.update_many(
         query,
         {"$set": {"status": "payment_pending"}}
     )
-
-    #print("🏪 Shops updated:", shop_res.modified_count)
-    #print("🎁 Offers updated:", offer_res.modified_count)
 
 
 def process_expired_plans():
@@ -53,6 +39,7 @@ def process_expired_plans():
     expired_query = {
         "status": "success",
         "expiry_date": {"$lt": now},
+        "expired_at": {"$exists": False},
         "$or": [
             {"autopay": {"$exists": False}},
             {"autopay": False}

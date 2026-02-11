@@ -28,6 +28,7 @@ class UravugalInput(BaseModel):
     mother_pattapaiyar: Optional[str] = ""
     mother_native_place: Optional[str] = ""
 
+
     # ✅ MARITAL STATUS
     marital_status: Literal[
         "unmarried",
@@ -36,7 +37,7 @@ class UravugalInput(BaseModel):
         "divorced",
         "ready_for_next_marriage"
     ] = "unmarried"
-
+    address : str = ""
     occupation: List[str] = []
     business_running: str = "no"  # yes / no
     business_name: Optional[str] = ""
@@ -89,7 +90,7 @@ def add_uravulgal(data: UravugalInput):
     translated_mother_name = translate_text(data.mother_name, data.lang)
     translated_mother_pattapaiyar = translate_text(data.mother_pattapaiyar, data.lang)
     translated_mother_native = translate_text(data.mother_native_place, data.lang)
-
+    translated_address = translate_text(data.address, data.lang)
     translated_marital_status = translate_marital_status(
         data.marital_status,
         data.lang
@@ -117,7 +118,7 @@ def add_uravulgal(data: UravugalInput):
         "mother_name": translated_mother_name,
         "mother_pattapaiyar": translated_mother_pattapaiyar,
         "mother_native_place": translated_mother_native,
-
+        "Address":translated_address,
         # ✅ NEW FIELD
         "marital_status": translated_marital_status,
 

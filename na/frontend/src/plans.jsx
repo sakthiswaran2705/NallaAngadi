@@ -6,7 +6,7 @@ import plansData from "./plans.json";
 import Navbar from "./Navbar.jsx";
 import { FEATURES, PLAN_INCLUDES } from "./config_include";
 import AddonCard from "./AddonCard";
-
+import Footer from "./footer.jsx"
 const API_BASE = import.meta.env.VITE_BACKEND_URL;
 
 const loadRazorpayScript = () => {
@@ -29,7 +29,8 @@ const TXT = {
   chooseSilver: { en: "Upgrade to Silver", ta: "சில்வர் தேர்வு" },
   choosePlatinum: { en: "Get Platinum", ta: "பிளாட்டினம் தேர்வு" },
   chooseGold: { en: "Go Gold", ta: "கோல்ட் தேர்வு" },
-  chooseStarter: { en: "Free Forever", ta: "எப்போதும் இலவசம்" },
+  chooseStarter: { en: "Free", ta: "இலவசம்" },
+  currentPlanBtn: { en: "Active Plan", ta: "செயலில் உள்ள திட்டம்" },
   processing: { en: "Processing...", ta: "செயலாக்குகிறது..." },
   includes: { en: "Everything in the plan:", ta: "திட்டத்தில் அடங்கியவை:" },
   benefitsTitle: { en: "Nalla Angadi Helps You Grow Your Business", ta: "நல்ல அங்காடி உங்கள் வணிக வளர்ச்சிக்கு உதவுகிறது" },
@@ -45,16 +46,9 @@ const TXT = {
   transId: { en: "Transaction ID:", ta: "பரிவர்த்தனை எண்:" },
   loginReqTitle: { en: "Login Required", ta: "உள்நுழைவு தேவை" },
   loginReqMsg: { en: "Please login to purchase a plan.", ta: "திட்டத்தை வாங்க உள்நுழையவும்." },
-  footerSlogan: { en: "Discover. Connect. Grow.", ta: "கண்டுபிடி. இணை. வளர்." },
-  contactUs: { en: "Contact Us", ta: "தொடர்பு கொள்ள" },
-  shipping: { en: "Shipping Policy", ta: "கப்பல் கொள்கை" },
-  privacy: { en: "Privacy Policy", ta: "தனயுரிமைக் கொள்கை" },
-  terms: { en: "Terms & Conditions", ta: "விதிமுறைகள்" },
-  refund: { en: "Cancellation & Refund", ta: "ரத்து & திரும்பப் பெறுதல்" },
-  rights: { en: "All rights reserved.", ta: "அனைத்து உரிமைகளும் பாதுகாக்கப்பட்டவை." },
-  // --- NEW ADDITIONS ---
   freeLabel: { en: "Free", ta: "இலவசம்" },
-  day: { en: "day", ta: "நாள்" }
+  day: { en: "day", ta: "நாள்" },
+  activeBadge: { en: "ACTIVE PLAN", ta: "செயலில் உள்ளது" }
 };
 
 const popupVariants = {
@@ -142,15 +136,12 @@ export default function PricingPage() {
 
   return (
     <div style={styles.page}>
-
-      {/* NAVBAR SECTION */}
       <div style={styles.navContainer}>
         <Navbar variant="plan" />
       </div>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Tamil:wght@400;500;600;700&display=swap');
-        
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         @keyframes float { 0% { transform: translateY(0px) scale(1.05); } 50% { transform: translateY(-10px) scale(1.05); } 100% { transform: translateY(0px) scale(1.05); } }
         .plan-card { transition: all 0.3s ease; }
@@ -159,7 +150,6 @@ export default function PricingPage() {
         @media (max-width: 900px) { .plan-row { flex-direction: column; align-items: center; } .plan-card-platinum { transform: scale(1) !important; animation: none; margin: 20px 0; } }
       `}</style>
 
-      {/* NOTIFICATIONS */}
       <AnimatePresence>
         {popup && (
             <motion.div className="custom-popup-toast" variants={popupVariants} initial="initial" animate="animate" exit="exit" onClick={() => setPopup(null)} style={styles.toast}>
@@ -169,7 +159,6 @@ export default function PricingPage() {
         )}
       </AnimatePresence>
 
-      {/* SUCCESS MODAL */}
       {showSuccessModal && (
         <div style={styles.modalOverlay}>
           <div className="success-modal" style={styles.modalCard}>
@@ -181,18 +170,18 @@ export default function PricingPage() {
         </div>
       )}
 
-      {/* CONTENT AREA */}
       <div style={styles.contentContainer}>
         <div style={{ marginBottom: "60px" }}>
             <h1 style={styles.title}>{TXT.title[LANG]}</h1>
             <p style={styles.subtitle}>{TXT.subtitle[LANG]}</p>
         </div>
 
-        {/* PLAN BOXES */}
         <div className="plan-row" style={styles.planRow}>
           {plansData.plans.map((plan) => {
             const isPlatinum = plan.id === "platinum";
             const isStarter = plan.id === "starter";
+            const isCurrent = currentPlan === plan.id;
+
             let cardStyle = isPlatinum ? styles.cardPlatinum : (plan.id === "silver" ? styles.cardSilver : (isStarter ? styles.cardStarter : styles.cardGold));
             let badgeStyle = isPlatinum ? styles.badgePlatinum : (plan.id === "silver" ? styles.badgeSilver : (isStarter ? styles.badgeStarter : styles.badgeGold));
             let priceStyle = isPlatinum ? styles.pricePlatinum : (plan.id === "gold" ? styles.priceGold : styles.priceSilver);
@@ -201,7 +190,18 @@ export default function PricingPage() {
 
             return (
               <div key={plan.id} className={`plan-card ${isPlatinum ? 'plan-card-platinum' : ''}`} style={cardStyle}>
+
+                {/* --- 1. FLOATING ACTIVE BADGE (KEPT) --- */}
+                {isCurrent && (
+                  <div style={styles.activeBadge}>
+                    <Icon icon="tick-circle" size={14} color="#fff" />
+                    {TXT.activeBadge[LANG]}
+                  </div>
+                )}
+
+                {/* Standard Badge (Most Popular/Best Value) */}
                 <div style={badgeStyle}>{isPlatinum ? "MOST POPULAR" : plan.badge}</div>
+
                 <h2 style={styles.planName}>{plan.name[LANG]}</h2>
                 <p style={styles.planType}>{plan.type[LANG]}</p>
                 <div style={{ margin: "20px 0" }}>
@@ -209,18 +209,28 @@ export default function PricingPage() {
                     {plan.displayPrice === "0" || plan.displayPrice === 0 ? TXT.freeLabel[LANG] : `₹${plan.displayPrice}`}
                     <span style={styles.priceMonth}>{plan.period[LANG]}</span>
                   </h1>
-
-                  {/* 👇 DAY PRICE UPDATED WITH TRANSLATION */}
-                  {!isStarter && plan.dayPrice && (
-                    <p style={styles.dayPrice}>₹{plan.dayPrice} / {TXT.day[LANG]}</p>
-                  )}
+                  {!isStarter && Number.isFinite(Number(plan.dayPrice)) && (
+                      <p style={styles.dayPrice}>
+                        ₹{Number(plan.dayPrice)} / {TXT.day[LANG]}
+                      </p>
+                    )}
                 </div>
 
-                {!isStarter ? (
-                    <button style={buttonStyle} onClick={() => handlePlanPayment(plan)}>{processingId === plan.id ? TXT.processing[LANG] : (TXT[`choose${plan.badge}`]?.[LANG] || TXT.chooseStarter[LANG])}</button>
-                ) : (
+                {/* --- 2. BUTTON LOGIC (MODIFIED) --- */}
+                {/* If isCurrent is true, we render NOTHING (null) here. We only show buttons if it is NOT the current plan. */}
+                {!isCurrent && (
+                  !isStarter ? (
+                    // Normal Upgrade Button
+                    <button style={buttonStyle} onClick={() => handlePlanPayment(plan)}>
+                      {processingId === plan.id ? TXT.processing[LANG] : (TXT[`choose${plan.badge}`]?.[LANG] || TXT.chooseStarter[LANG])}
+                    </button>
+                  ) : (
+                    // Starter Info Badge (Only if not current)
                     <div style={styles.starterBadgeContainer}><span style={styles.starterBadgeText}>{TXT.chooseStarter[LANG]}</span></div>
+                  )
                 )}
+                {/* --------------------------- */}
+
                 <div style={dividerStyle}></div>
                 <h3 style={styles.includesTitle}>{TXT.includes[LANG]}</h3>
                 <ul style={{ listStyle: "none", padding: 0, textAlign: "left" }}>
@@ -231,10 +241,8 @@ export default function PricingPage() {
           })}
         </div>
 
-        {/* ADDONS */}
         <div style={{marginTop: "60px"}}><AddonCard activePlanName={currentPlan} showPopup={showPopup} /></div>
 
-        {/* GROWTH / BENEFITS SECTION */}
         <div style={styles.benefitSection}>
             <h2 style={styles.benefitHeading}>{TXT.benefitsTitle[LANG]}</h2>
             <div style={styles.benefitContainer}>
@@ -256,26 +264,7 @@ export default function PricingPage() {
             </div>
         </div>
 
-        {/* FOOTER */}
-        <footer style={styles.footer}>
-          <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
-            <h4 style={styles.footerBrand}>Nalla Angadi</h4>
-            <div style={styles.footerSlogan}>{TXT.footerSlogan[LANG]}</div>
-            <div style={styles.footerNav}>
-              <a href="/contact" style={styles.footerLink}>{TXT.contactUs[LANG]}</a>
-              <a href="/shipping" style={styles.footerLink}>{TXT.shipping[LANG]}</a>
-              <a href="/privacy" style={styles.footerLink}>{TXT.privacy[LANG]}</a>
-              <a href="/terms" style={styles.footerLink}>{TXT.terms[LANG]}</a>
-              <a href="/refund" style={styles.footerLink}>{TXT.refund[LANG]}</a>
-            </div>
-            <div style={styles.copyright}>
-              <span>© {new Date().getFullYear()}</span>
-              <span style={{ marginLeft: "10px" }}>chola info Technologies</span>
-              <span style={{ marginLeft: "10px" }}>{TXT.rights[LANG]}</span>
-            </div>
-
-          </div>
-        </footer>
+       <Footer/>
       </div>
     </div>
   );
@@ -287,18 +276,14 @@ const styles = {
     contentContainer: { padding: "40px 20px", textAlign: "center", maxWidth: "1400px", margin: "0 auto" },
     title: { fontSize: "44px", fontWeight: 800, marginBottom: "16px", letterSpacing: "-1px", color: "#111827" },
     subtitle: { color: "#6b7280", fontSize: "18px", maxWidth: "600px", margin: "0 auto" },
-    dayPrice: {
-      fontSize: "14px",
-      color: "#6b7280",
-      marginTop: "6px",
-      fontWeight: "500"
-    },
+    dayPrice: { fontSize: "14px", color: "#6b7280", marginTop: "6px", fontWeight: "500" },
     planRow: { display: "flex", justifyContent: "center", gap: "24px", alignItems: "flex-start", paddingTop: "20px" },
     planName: { fontSize: "22px", fontWeight: "700", marginTop: "15px" },
     planType: { fontSize: "12px", fontWeight: "600", opacity: 0.5, textTransform: "uppercase" },
     priceMonth: { fontSize: "14px", opacity: 0.5, marginLeft: "4px" },
     includesTitle: { fontSize: "11px", fontWeight: "700", marginBottom: "16px", textTransform: "uppercase", opacity: 0.4 },
     featureItem: { marginBottom: "12px", fontSize: "14px", display: "flex", opacity: 0.9 },
+
     starterBadgeContainer: { width: "100%", padding: "14px", background: "#f9fafb", borderRadius: "12px", border: "1px dashed #d1d5db", marginTop: "10px" },
     starterBadgeText: { fontSize: "14px", fontWeight: "600", color: "#6b7280" },
     cardStarter: { background: "#fff", width: "320px", padding: "32px 24px", borderRadius: "20px", border: "1px solid #e5e7eb", position: "relative" },
@@ -325,11 +310,7 @@ const styles = {
     benefitIcon: { fontSize: "42px", marginBottom: "20px", background: "#f9fafb", width: "80px", height: "80px", lineHeight: "80px", borderRadius: "50%", margin: "0 auto 20px" },
     benefitTitle: { fontSize: "18px", fontWeight: 700, marginBottom: "10px" },
     benefitText: { fontSize: "15px", color: "#6b7280", lineHeight: "1.6" },
-    footer: { marginTop: "100px", borderTop: "1px solid #e5e7eb", paddingTop: "60px", paddingBottom: "40px" },
-    footerBrand: { fontSize: "22px", fontWeight: "800", color: "#111827", marginBottom: "8px" },
-    footerSlogan: { color: "black", fontSize: "14px", marginBottom: "32px" },
-    footerNav: { display: "flex", justifyContent: "center", gap: "24px", flexWrap: "wrap", marginBottom: "32px" },
-    footerLink: { color: "black", textDecoration: "none", fontSize: "14px", fontWeight: "500" },
+
     copyright: { color: "black", fontSize: "12px", borderTop: "1px solid #f1f5f9", paddingTop: "24px" },
     modalOverlay: { position: "fixed", top: 0, left: 0, width: "100%", height: "100%", background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" },
     modalCard: { background: "#ffffff", width: "90%", maxWidth: "400px", padding: "40px", borderRadius: "24px", textAlign: "center", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)" },
@@ -337,5 +318,23 @@ const styles = {
     modalText: { color: "#6b7280", marginBottom: "24px" },
     continueBtn: { width: "100%", padding: "14px", background: "#10b981", color: "#fff", fontWeight: "600", border: "none", borderRadius: "10px", cursor: "pointer" },
     toast: { position: "fixed", top: "20px", right: "20px", background: "#fff", padding: "16px", borderRadius: "12px", display: "flex", gap: "12px", boxShadow: "0 10px 25px rgba(0,0,0,0.1)", zIndex: 9999, border: "1px solid #eee" },
-    toastIcon: { width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "8px", background: "#fef3c7", color: "#d97706" }
+    toastIcon: { width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "8px", background: "#fef3c7", color: "#d97706" },
+
+    // ACTIVE BADGE STYLE
+    activeBadge: {
+      position: "absolute",
+      top: "-16px",
+      right: "-8px",
+      background: "#10b981",
+      color: "#fff",
+      padding: "6px 12px",
+      borderRadius: "999px",
+      fontSize: "12px",
+      fontWeight: "700",
+      display: "flex",
+      alignItems: "center",
+      gap: "6px",
+      boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
+      zIndex: 5
+    }
 };

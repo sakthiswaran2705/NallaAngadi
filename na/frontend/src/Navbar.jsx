@@ -284,7 +284,25 @@ function Navbar() {
 
         /* --- NOTIFICATIONS --- */
         .notif-container { position: relative; cursor: pointer; margin-right: 15px; font-size: 20px; }
-        .notif-badge { position: absolute; top: -5px; right: -5px; background: red; color: white; font-size: 9px; font-weight: bold; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; border: 2px solid white; }
+        .notif-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: red;
+        color: white;
+        font-size: 9px;
+        font-weight: bold;
+        border-radius: 50%;
+        min-width: 14px;        /* 👈 already small */
+        height: 14px;
+        padding: 0 3px;        /* 👈 only extra for 99+ */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid white;
+        line-height: 1;
+      }
+
         .notif-dropdown { position: absolute; top: 140%; right: -10px; width: 340px; background: white; border-radius: 12px; box-shadow: 0 15px 40px rgba(0,0,0,0.15); z-index: 1100; border: 1px solid #f0f0f0; overflow: hidden; }
         .notif-header { padding: 12px 18px; font-weight: 700; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; background: #fff; font-size: 14px; color: #333; }
         .notif-list { max-height: 350px; overflow-y: auto; }
@@ -389,7 +407,12 @@ function Navbar() {
             {uid && (
               <div className="notif-container" ref={notifRef} onClick={() => setShowNotifDropdown(!showNotifDropdown)}>
                 <span>🔔</span>
-                {notifications.length > 0 && <div className="notif-badge">{notifications.length}</div>}
+                {notifications.length > 0 && (
+                  <div className="notif-badge">
+                    {notifications.length > 99 ? "99+" : notifications.length}
+                  </div>
+                )}
+
                 {showNotifDropdown && (
                   <div className="notif-dropdown" onClick={(e) => e.stopPropagation()}>
                     <div className="notif-header">

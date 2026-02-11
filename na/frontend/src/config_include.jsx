@@ -11,16 +11,16 @@ export const FEATURES = {
     ta: " 1 கடை அனுமதி",
   },
   shop_2: {
-    en: " 2 Shops Allowed",
-    ta: " 2 கடைகள் அனுமதி",
+    en: " 1 Shops Allowed",
+    ta: " 1 கடைகள் அனுமதி",
   },
   shop_4: {
-    en: " 4 Shops Allowed",
-    ta: " 4 கடைகள் அனுமதி",
+    en: " 1 Shops Allowed",
+    ta: " 1 கடைகள் அனுமதி",
   },
   shop_8:{
-    en: "8 Shops Allowed",
-    ta:"8 கடைகள் அனுமதி"
+    en: "1 Shops Allowed",
+    ta:"1 கடைகள் அனுமதி"
   },
   unlimited_search: {
     en: " Unlimited Search Shops",

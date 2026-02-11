@@ -1,6 +1,6 @@
 import React from "react";
 import Navbar from "./Navbar.jsx";
-
+import Footer from "./footer.jsx"
 // ==========================================================
 // 1. TRANSLATION TEXT (SAME FORMAT)
 // ==========================================================
@@ -120,10 +120,10 @@ function Shipping() {
 
         <p>
           <b>{t("email")}:</b> cholainfotech26@gmail.com <br />
-          <b>{t("phone")}:</b> +91 8870462434 <br />
           <b>{t("location")}:</b> Thanjavur, Tamil Nadu, India
         </p>
       </div>
+      <Footer/>
     </>
   );
 }

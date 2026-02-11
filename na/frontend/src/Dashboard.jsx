@@ -5,6 +5,7 @@ import Navbar from "./Navbar";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@blueprintjs/core";
+import Footer from "./footer.jsx";
 
 // --- CONSTANTS ---
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
@@ -49,9 +50,7 @@ const TXT = {
   keywords: { en: "Keywords", ta: "முக்கிய வார்த்தைகள்" },
   editShop: { en: "Edit Shop", ta: "கடையைத் திருத்து" },
   deleteShop: { en: "Delete Shop", ta: "கடையை நீக்கு" },
-  deleting: { en: "Deleting...", ta: "நீக்கப்படுகிறது..." },
   media: { en: "Gallery", ta: "ஊடகம்" },
-  more: { en: "more", ta: "கூடுதல்" },
   offers: { en: "Active Offers", ta: "சலுகைகள்" },
   off: { en: "OFF", ta: "தள்ளுபடி" },
   edit: { en: "Edit", ta: "திருத்து" },
@@ -79,17 +78,22 @@ const TXT = {
   addNewOffer: { en: "Create New Offer", ta: "புதிய சலுகையைச் சேர்" },
   selectShop: { en: "-- Select Shop --", ta: "-- கடையைத் தேர்ந்தெடுக்கவும் --" },
   offerTitle: { en: "Offer Title", ta: "சலுகை தலைப்பு" },
-  feeOptional: { en: "Fee (optional)", ta: "கட்டணம் (விருப்பமானது)" },
+  feeOptional: { en: "Fee", ta: "கட்டணம்" },
   percentageLimit: { en: "Percentage (0-100)", ta: "சதவீதம் (0-100)" },
   uploadOffer: { en: "Upload Offer", ta: "சலுகையைப் பதிவேற்று" },
   uploading: { en: "Uploading...", ta: "பதிவேற்றப்படுகிறது..." },
   mediaFileLabel: { en: "Media File (Image max 5MB, Video max 20MB)", ta: "ஊடகக் கோப்பு (படம் அதிகபட்சம் 5MB, வீடியோ அதிகபட்சம் 20MB)" },
   updateOffer: { en: "Update Offer", ta: "சலுகையைப் புதுப்பி" },
-  replaceMedia: { en: "Replace Media (optional)", ta: "ஊடகத்தை மாற்றவும் (விருப்பமானது)" },
   enterTitle: { en: "Enter title", ta: "தலைப்பை உள்ளிடவும்" },
   selectShopErr: { en: "Select shop", ta: "கடையைத் தேர்ந்தெடுக்கவும்" },
-  citySelectErr: { en: "Please select a city from the dropdown list.", ta: "பட்டியலிலிருந்து ஒரு நகரத்தைத் தேர்ந்தெடுக்கவும்." },
-  back: { en: "Back", ta: "பின்செல்ல" },
+  cityRequired: {
+    en: "Please select a city from the list or add a new city",
+    ta: "பட்டியலிலிருந்து நகரத்தைத் தேர்ந்தெடுக்கவும் அல்லது புதிய நகரத்தைச் சேர்க்கவும்"
+  },
+  serverError: {
+    en: "Server connection failed. Please try again",
+    ta: "சேவையக இணைப்பு தோல்வியடைந்தது. மீண்டும் முயற்சிக்கவும்"
+  },
   close: { en: "Close", ta: "மூடு" }
 };
 
@@ -119,16 +123,37 @@ export default function Dashboard() {
   const [popup, setPopup] = useState(null);
 
   // Helper to show Popup
-  const showPopup = (type, message, title = "") => {
-    setPopup({ type, message, title });
+  const showPopup = (type, message, title = "", onClick = null) => {
+    setPopup({ type, message, title, onClick });
     setTimeout(() => setPopup(null), 3500);
+  };
+
+
+  // --- ERROR EXTRACTION HELPER ---
+  const extractError = (json) => {
+    if (json?.message) return json.message;
+    if (json?.detail) return json.detail;
+    if (json?.error) return typeof json.error === 'string' ? json.error : JSON.stringify(json.error);
+
+    if (typeof json === 'object' && json !== null) {
+        const keys = Object.keys(json).filter(k => !['status', 'success', 'data', 'code'].includes(k));
+        if (keys.length > 0) {
+            const val = json[keys[0]];
+            if (typeof val === 'string') return `${keys[0]}: ${val}`;
+            if (Array.isArray(val) && val.length > 0) return `${keys[0]}: ${val[0]}`;
+        }
+    }
+    return "Unknown error occurred";
   };
 
   // --- FORMS STATE ---
   const [showForm, setShowForm] = useState(false);
   const [editingShop, setEditingShop] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  // CITY SELECTION STATE
   const [citySelected, setCitySelected] = useState(false);
+
   const fileInputRef = useRef(null);
   const mainImageInputRef = useRef(null);
 
@@ -141,13 +166,11 @@ export default function Dashboard() {
   // Media State
   const [previewImg, setPreviewImg] = useState([]);
   const [existingPhotos, setExistingPhotos] = useState([]);
-
-  // Main Image State
   const [mainImageFile, setMainImageFile] = useState(null);
   const [mainImagePreview, setMainImagePreview] = useState(null);
   const [existingMainImage, setExistingMainImage] = useState(null);
 
-  // Offer Form (Add)
+  // Offer Form
   const [showOfferForm, setShowOfferForm] = useState(false);
   const [offerUploading, setOfferUploading] = useState(false);
   const [offerPreview, setOfferPreview] = useState(null);
@@ -156,7 +179,7 @@ export default function Dashboard() {
     percentage: "", description: "", file: null
   });
 
-  // Offer Form (Update)
+  // Offer Update Form
   const [showUpdateOfferForm, setShowUpdateOfferForm] = useState(false);
   const [updateOfferSaving, setUpdateOfferSaving] = useState(false);
   const [updateOfferPreview, setUpdateOfferPreview] = useState(null);
@@ -165,12 +188,16 @@ export default function Dashboard() {
     percentage: "", description: "", file: null
   });
 
-  // --- GALLERY STATE ---
+  // Gallery
   const [gallery, setGallery] = useState({
-    isOpen: false,
-    mediaList: [],
-    currentIndex: 0,
-    shopName: ""
+    isOpen: false, mediaList: [], currentIndex: 0, shopName: ""
+  });
+
+  // --- CITY ADD MODAL STATE ---
+  const [showCityModal, setShowCityModal] = useState(false);
+  const [isCitySaving, setIsCitySaving] = useState(false);
+  const [newCity, setNewCity] = useState({
+    city_name: "", district: "", pincode: "", state: ""
   });
 
   // --- EFFECTS ---
@@ -203,7 +230,7 @@ export default function Dashboard() {
       });
       const json = await res.json();
       if (json?.data) setShops(json.data);
-      else showPopup("error", json?.message || "Failed to load shops", "Error");
+      else console.warn(extractError(json));
     } catch (err) {
       console.warn("Load error:", err);
     }
@@ -223,12 +250,18 @@ export default function Dashboard() {
       setShowSubAlert(true);
       return false;
     }
-    if (type === "shop") {
-      if (planInfo.usage.shops_left <= 0) {
-        showPopup("warning", `You have reached the shop limit for the ${planInfo.plan} plan.`, "Limit Reached");
-        return false;
-      }
+   if (planInfo?.usage?.shops_left <= 0) {
+      showPopup(
+        "warning",
+        `You have reached the shop limit for the ${planInfo.plan} plan. Click to view plans.`,
+        "Limit Reached",
+        () => navigate("/plan")
+      );
+      return false;
     }
+
+
+
     if (type === "offer") {
       if (planInfo.usage.offers_left <= 0) {
         showPopup("warning", `You have reached the offer limit for the ${planInfo.plan} plan.`, "Limit Reached");
@@ -253,7 +286,10 @@ export default function Dashboard() {
       const res = await fetch(`${BACKEND_URL}/city/search/?city_name=${encodeURIComponent(text)}&lang=${lang}`);
       const json = await res.json();
       if (json?.status === "success") setCitySug(json.data || []);
-    } catch (e) {}
+      else setCitySug([]);
+    } catch (e) {
+        setCitySug([]);
+    }
   };
 
   // --- HANDLERS ---
@@ -268,13 +304,121 @@ export default function Dashboard() {
     typingRef.current = setTimeout(() => fetchCategory(last), 300);
   };
 
+  // --- CITY HANDLERS ---
   const onCityTyping = (value) => {
     handleInputChange("city_name", value);
     handleInputChange("city_id", "");
     setCitySelected(false);
+
     if (typingRef.current) clearTimeout(typingRef.current);
     typingRef.current = setTimeout(() => fetchCity(value), 300);
   };
+
+  const selectExistingCity = (city) => {
+      handleInputChange("city_id", city._id);
+      handleInputChange("city_name", city.city_name);
+      handleInputChange("district", city.district);
+      handleInputChange("pincode", city.pincode);
+      handleInputChange("state", city.state);
+      setCitySelected(true);
+      setCitySug([]);
+  };
+
+  const openAddCityModal = () => {
+    setNewCity({
+        city_name: form.city_name,
+        district: "",
+        pincode: "",
+        state: ""
+    });
+    setCitySug([]);
+    setShowCityModal(true);
+  };
+
+  // --- SAVE NEW CITY (POPUP ADDED HERE) ---
+  const handleSaveNewCity = async () => {
+  // Basic validation
+    if (
+      !newCity.city_name ||
+      !newCity.district ||
+      !newCity.pincode ||
+      !newCity.state
+    ) {
+      showPopup("warning", "Please fill all city fields", "Missing Info");
+      return;
+    }
+
+    setIsCitySaving(true);
+
+    try {
+      const fd = new FormData();
+      fd.append("city_name", newCity.city_name);
+      fd.append("district", newCity.district);
+      fd.append("pincode", newCity.pincode);
+      fd.append("state", newCity.state);
+
+      const res = await authenticatedFetch("/city/add/", {
+        method: "POST",
+        body: fd,
+      });
+
+      const json = await res.json();
+
+      // 🔴 CASE 1: City already exists (same pincode)
+      if (json?.inserted === false && json?.city_id) {
+        setForm((prev) => ({
+          ...prev,
+          city_id: json.city_id,
+          city_name: newCity.city_name,
+          district: newCity.district,
+          pincode: newCity.pincode,
+          state: newCity.state,
+        }));
+
+        setCitySelected(true);
+        setCitySug([]);
+        setShowCityModal(false);
+
+        showPopup("warning", json.message, "City Exists");
+        return;
+      }
+
+
+      if (json?.inserted === true && json?.city_id) {
+        setForm((prev) => ({
+          ...prev,
+          city_id: json.city_id,
+          city_name: newCity.city_name,
+          district: newCity.district,
+          pincode: newCity.pincode,
+          state: newCity.state,
+        }));
+
+        setCitySelected(true);
+        setCitySug([]);
+        setShowCityModal(false);
+
+        showPopup(
+          "success",
+          `City "${newCity.city_name}" added successfully`,
+          "City Added"
+        );
+        return;
+      }
+
+      // ❌ Unexpected response
+      showPopup("error", extractError(json), "Error");
+    } catch (e) {
+      showPopup(
+        "error",
+        e.message || TXT.serverError[lang],
+        "Network Error"
+      );
+    } finally {
+      setIsCitySaving(false);
+    }
+  };
+
 
   const handleAddOpen = () => {
     if (!checkLimit("shop")) return;
@@ -294,7 +438,8 @@ export default function Dashboard() {
 
   const handleUpdateOpen = (item) => {
     setEditingShop(item.shop._id);
-    setCitySelected(true);
+    setCitySelected(!!item.city?.city_name);
+
     setForm({
       shop_name: item.shop.shop_name || "",
       description: item.shop.description || "",
@@ -303,6 +448,7 @@ export default function Dashboard() {
       email: item.shop.email || "",
       landmark: item.shop.landmark || "",
       category_list: item.categories ? item.categories.map(c => c.name).join(", ") : "",
+      city_id: item.city?._id || "",
       city_name: item.city?.city_name || "",
       district: item.city?.district || "",
       pincode: item.city?.pincode || "",
@@ -394,8 +540,11 @@ export default function Dashboard() {
     });
   };
 
+  // --- SUBMIT SHOP FORM ---
   const submitShopForm = async () => {
-    if (!form.city_id && !citySelected) return showPopup("error", TXT.citySelectErr[lang], "City Required");
+    if (!form.city_id || !citySelected) {
+        return showPopup("error", TXT.cityRequired[lang], "City Required");
+    }
 
     setSaving(true);
     const fd = new FormData();
@@ -420,10 +569,10 @@ export default function Dashboard() {
         await loadShops();
         await fetchPlanStatus();
       } else {
-        showPopup("error", json?.message || "Operation failed", "Error");
+        showPopup("error", extractError(json), "Error");
       }
     } catch (e) {
-      showPopup("error", "Server Error", "Network");
+      showPopup("error", e.message || TXT.serverError[lang], "Network");
     } finally {
       setSaving(false);
     }
@@ -442,8 +591,8 @@ export default function Dashboard() {
          showPopup("success", "Shop deleted successfully", "Deleted");
          await loadShops();
          await fetchPlanStatus();
-      } else showPopup("error", "Delete failed", "Error");
-    } catch (e) { showPopup("error", "Server Error", "Network"); }
+      } else showPopup("error", extractError(json), "Error");
+    } catch (e) { showPopup("error", e.message || TXT.serverError[lang], "Network"); }
     finally { setDeletingId(null); }
   };
 
@@ -458,9 +607,9 @@ export default function Dashboard() {
         showPopup("success", "Photo deleted", "Success");
         loadShops();
       } else {
-        showPopup("error", json?.message || "Delete failed", "Error");
+        showPopup("error", extractError(json), "Error");
       }
-    } catch (e) { showPopup("error", "Server Error", "Network"); }
+    } catch (e) { showPopup("error", e.message || TXT.serverError[lang], "Network"); }
   };
 
   const handleOfferFile = (file, isUpdate = false) => {
@@ -483,11 +632,19 @@ export default function Dashboard() {
     }
   };
 
+  // --- SUBMIT OFFER ---
   const submitOffer = async (isUpdate) => {
     const f = isUpdate ? updateOfferForm : offerForm;
-    if (!f.shop_id && !isUpdate) return showPopup("warning", TXT.selectShopErr[lang], "Missing Field");
-    if (!f.title || !f.start_date || !f.end_date) return showPopup("warning", TXT.enterTitle[lang], "Missing Field");
-    if (!isUpdate && !f.file) return showPopup("warning", "File required", "Missing File");
+
+    if (!f.shop_id && !isUpdate) return showPopup("warning", TXT.selectShopErr[lang], "Shop Required");
+    if (!f.title) return showPopup("warning", "Title is required", "Missing Field");
+    if (!f.fee) return showPopup("warning", "Fee is required", "Missing Field");
+    if (!f.percentage) return showPopup("warning", "Percentage is required", "Missing Field");
+    if (!f.start_date) return showPopup("warning", "Start Date is required", "Missing Field");
+    if (!f.end_date) return showPopup("warning", "End Date is required", "Missing Field");
+    if (!f.description) return showPopup("warning", "Description is required", "Missing Field");
+
+    if (!isUpdate && !f.file) return showPopup("warning", "Offer image/video is required", "Missing File");
 
     const fd = new FormData();
     if (isUpdate) {
@@ -519,8 +676,10 @@ export default function Dashboard() {
         showPopup("success", isUpdate ? "Offer updated!" : "Offer added!", "Success");
         await loadShops();
         await fetchPlanStatus();
-      } else showPopup("error", json?.message || "Failed", "Error");
-    } catch (e) { showPopup("error", "Server Error", "Network"); }
+      } else {
+          showPopup("error", extractError(json), "Error");
+      }
+    } catch (e) { showPopup("error", e.message || TXT.serverError[lang], "Network"); }
     finally { setter(false); }
   };
 
@@ -532,8 +691,10 @@ export default function Dashboard() {
           showPopup("success", "Offer deleted", "Deleted");
           await loadShops();
           await fetchPlanStatus();
+      } else {
+          showPopup("error", extractError(json), "Error");
       }
-    } catch (e) { showPopup("error", "Server Error", "Network"); }
+    } catch (e) { showPopup("error", e.message || TXT.serverError[lang], "Network"); }
   };
 
   const openGallery = (mediaSource, index = 0) => {
@@ -582,17 +743,13 @@ export default function Dashboard() {
         display: "flex",
         flexDirection: "column"
     },
-
-    // NEW: Container specifically for the dashboard content, separate from navbar
     container: {
         width: "100%",
-        maxWidth: "1280px", // Limits width on very large screens
-        margin: "0 auto", // Centers content
+        maxWidth: "1280px",
+        margin: "0 auto",
         padding: "2rem",
         flex: 1
     },
-
-    // Header Section
     headerContainer: {
         marginBottom: "2rem",
         display: "flex",
@@ -608,13 +765,10 @@ export default function Dashboard() {
     title: {
         margin: 0,
         fontSize: "1.85rem",
-
         fontWeight: "800",
         color: "#1E293B",
         letterSpacing: "-0.5px"
     },
-
-    // Stats / Plan Box
     planBox: {
         background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)",
         color: "white",
@@ -630,8 +784,6 @@ export default function Dashboard() {
     statItem: { display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 },
     statVal: { fontWeight: "700", fontSize: "1.2rem" },
     statLabel: { fontSize: "0.75rem", opacity: 0.9, textTransform: "uppercase", letterSpacing: "1px" },
-
-    // Buttons
     btnGroup: { display: "flex", gap: "12px", fontFamily: "'Inter', 'Noto Sans Tamil', sans-serif", },
     btn: (variant = "primary", disabled = false) => ({
         padding: "0.75rem 1.25rem",
@@ -650,8 +802,6 @@ export default function Dashboard() {
         boxShadow: variant !== "outline" ? "0 4px 6px -1px rgba(0,0,0,0.1)" : "none",
         opacity: disabled ? 0.7 : 1
     }),
-
-    // Cards
     card: {
         backgroundColor: colors.card,
         borderRadius: "20px",
@@ -680,19 +830,14 @@ export default function Dashboard() {
         flexDirection: "column",
         gap: "2rem"
     },
-
-    // Card Details
     shopTitle: { margin: 0, fontSize: "1.5rem", fontWeight: "700", color: "#1E293B", lineHeight: 1.2 },
     shopDesc: { color: colors.subtext, fontSize: "0.95rem", lineHeight: "1.6", margin: 0 },
     infoGrid: { display: "flex", flexDirection: "column", gap: "10px" },
     infoRow: { display: "flex", gap: "10px", fontSize: "0.9rem", alignItems: "baseline" },
     infoLabel: { fontWeight: "600", color: "#64748B", minWidth: "80px", textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.5px" },
     infoVal: { color: "#334155", fontWeight: "500", flex: 1 },
-
     tagContainer: { display: "flex", flexWrap: "wrap", gap: "6px" },
     tag: { backgroundColor: colors.primaryLight, color: colors.primary, padding: "4px 10px", borderRadius: "20px", fontSize: "0.8rem", fontWeight: "600" },
-
-    // Main Image
     heroImgContainer: {
         width: "100%",
         height: "220px",
@@ -703,43 +848,37 @@ export default function Dashboard() {
         boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)"
     },
     heroImg: { width: "100%", height: "100%", objectFit: "cover" },
-
-    // Gallery Grid
     gallerySection: { },
     sectionTitle: { fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "1px", color: "#94A3B8", fontWeight: "700", marginBottom: "12px" },
     mediaGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(70px, 1fr))", gap: "12px" },
     thumbBox: { aspectRatio: "1/1", borderRadius: "10px", overflow: "hidden", cursor: "pointer", position: "relative", border: "1px solid #E2E8F0", transition: "transform 0.2s" },
     moreThumb: { width: "100%", height: "100%", backgroundColor: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748B", fontWeight: "700", fontSize: "0.9rem" },
-
-    // Offers
     offersRow: { display: "flex", gap: "16px", overflowX: "auto", paddingBottom: "10px" },
-    offerCard: {
-        minWidth: "160px",
-        backgroundColor: "white",
-        fontFamily: "'Inter', 'Noto Sans Tamil', sans-serif",
-        borderRadius: "12px",
-        border: `1px solid ${colors.border}`,
-        padding: "10px",
-        boxShadow: "0 2px 4px rgba(0,0,0,0.02)"
-    },
-    offerMedia: { height: "90px", borderRadius: "8px", overflow: "hidden", marginBottom: "10px", position: "relative" },
-    offerTitle: { fontWeight: "700", fontSize: "0.9rem", color: "#1E293B", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: "4px" },
-    offerBadge: { display: "inline-block", backgroundColor: "#ECFDF5", color: "#059669", padding: "2px 8px", borderRadius: "4px", fontSize: "0.75rem", fontWeight: "700" },
 
-    // Modal
+    // NEW OFFER CARD STYLE
+    offerCard: {
+        minWidth: "180px",
+        background: "linear-gradient(to bottom right, #ffffff, #F0F9FF)",
+        borderRadius: "16px",
+        border: `1px dashed ${colors.primary}`,
+        padding: "12px",
+        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05)",
+        position: "relative"   // IMPORTANT
+      },
+
+    offerMedia: { height: "110px", borderRadius: "10px", overflow: "hidden", marginBottom: "10px", position: "relative", border: "1px solid #E2E8F0" },
+    offerTitle: { fontWeight: "700", fontSize: "0.95rem", color: "#0F172A", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: "4px" },
+    offerBadge: { display: "inline-block", backgroundColor: colors.primary, color: "white", padding: "3px 10px", borderRadius: "20px", fontSize: "0.75rem", fontWeight: "700", marginBottom: "8px" },
+
     overlay: { position: "fixed", top: 0, left: 0, width: "100%", height: "100%", backgroundColor: "rgba(15, 23, 42, 0.6)", backdropFilter: "blur(4px)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" },
     modal: { backgroundColor: "white", borderRadius: "24px", width: "100%", maxWidth: "700px", maxHeight: "85vh", overflowY: "auto", padding: "2.5rem", position: "relative", boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)" },
     modalTitle: { margin: "0 0 1.5rem 0", fontSize: "1.5rem", fontWeight: "700", color: "#1E293B" },
-
-    // Inputs
     inputGroup: { marginBottom: "1.25rem" },
     inputLabel: { display: "block", fontSize: "0.85rem", fontWeight: "600", color: "#475569", marginBottom: "6px",fontFamily: "'Inter', 'Noto Sans Tamil', sans-serif", },
     input: {
         width: "100%", padding: "0.85rem 1rem", borderRadius: "10px", border: `1px solid ${colors.border}`,
         fontSize: "0.95rem", backgroundColor: "#F8FAFC", color: "#1E293B", transition: "border-color 0.2s", outline: "none"
     },
-
-    // Popup
     popupToast: (type) => ({
         position: "fixed", top: "24px", right: "24px", zIndex: 100000,
         backgroundColor: "white", borderRadius: "16px", padding: "16px 20px",
@@ -747,8 +886,6 @@ export default function Dashboard() {
         display: "flex", alignItems: "center", gap: "16px", borderLeft: `6px solid ${type === 'success' ? colors.success : type === 'error' ? colors.danger : "#F59E0B"}`,
         minWidth: "300px"
     }),
-
-    // Full Screen Gallery
     galleryOverlay: { position: "fixed", top: 0, left: 0, width: "100%", height: "100%", backgroundColor: "#000", zIndex: 10000, display: "flex", flexDirection: "column" },
     galleryMain: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" },
     galleryImg: { maxHeight: "85vh", maxWidth: "90vw", objectFit: "contain", boxShadow: "0 0 50px rgba(0,0,0,0.5)" },
@@ -770,7 +907,7 @@ export default function Dashboard() {
             ::-webkit-scrollbar-track { background: transparent; }
         `}</style>
 
-      {/* NAVBAR: Moved outside the padded container to stay full width */}
+      {/* NAVBAR */}
       <Navbar />
 
       <div style={s.container}>
@@ -799,9 +936,7 @@ export default function Dashboard() {
                             </div>
                         </div>
                     )}
-                    <button style={s.btn("outline")} onClick={() => navigate(-1)}>
-                    <Icon icon="arrow-left" /> {TXT.back[lang]}
-                    </button>
+                    {/* BACK BUTTON REMOVED */}
                     <button style={s.btn("primary",)} onClick={() => navigate("/my-jobs")}>
                         <Icon icon="briefcase" /> {TXT.myJobs ? TXT.myJobs[lang] : "My Jobs"}
                     </button>
@@ -909,6 +1044,7 @@ export default function Dashboard() {
                             <div style={s.offersRow}>
                                 {item.offers.map((off, i) => (
                                     <div key={i} style={s.offerCard}>
+                                        {/* Offer Media */}
                                         <div onClick={() => openGallery({ shop_name: off.title, media: [{type: off.media_type, path: off.media_path}] }, 0)} style={{cursor: "pointer"}}>
                                             <div style={s.offerMedia}>
                                                 {off.media_type === "video" ? (
@@ -918,10 +1054,15 @@ export default function Dashboard() {
                                                 )}
                                             </div>
                                         </div>
-                                        <div style={s.offerTitle} title={off.title}>{off.title}</div>
+
+                                        {/* Offer Details */}
                                         <div style={s.offerBadge}>{off.percentage}% {TXT.off[lang]}</div>
+                                        <div style={s.offerTitle} title={off.title}>{off.title}</div>
+                                        <div style={{fontSize: "0.8rem", color: colors.subtext, marginBottom: "8px"}}>{off.fee} INR</div>
+
+                                        {/* Action Buttons */}
                                         <div style={{display: "flex", gap: "6px", marginTop: "10px"}}>
-                                            <button style={{...s.btn("primary"), padding: "4px", flex: 1, justifyContent: "center", fontSize: "0.75rem"}} onClick={() => {
+                                            <button style={{...s.btn("primary"), padding: "4px", flex: 1, justifyContent: "center", fontSize: "0.75rem", borderRadius: "8px"}} onClick={() => {
                                                 setUpdateOfferForm({
                                                     offer_id: off.offer_id, shop_id: item.shop._id,
                                                     title: off.title, fee: off.fee, start_date: off.start_date,
@@ -930,9 +1071,32 @@ export default function Dashboard() {
                                                 setUpdateOfferPreview(mediaUrl(off.media_path));
                                                 setShowUpdateOfferForm(true);
                                             }}>{TXT.edit[lang]}</button>
-                                            <button style={{...s.btn("danger"), padding: "4px 8px"}} onClick={() => initiateDelete('offer', off.offer_id)}>
-                                                <Icon icon="cross" color="white" size={12}/>
-                                            </button>
+
+
+                                            {/* DELETE OFFER - TOP RIGHT */}
+                                              <button
+                                                onClick={() => initiateDelete('offer', off.offer_id)}
+                                                style={{
+                                                  position: "absolute",
+                                                  top: "8px",
+                                                  right: "8px",
+                                                  background: colors.danger,
+                                                  border: "none",
+                                                  borderRadius: "50%",
+                                                  width: "28px",
+                                                  height: "28px",
+                                                  display: "flex",
+                                                  alignItems: "center",
+                                                  justifyContent: "center",
+                                                  cursor: "pointer",
+                                                  boxShadow: "0 4px 6px rgba(0,0,0,0.15)",
+                                                  zIndex: 10
+                                                }}
+                                                title="Delete Offer"
+                                              >
+                                                <Icon icon="trash" size={14} color="white" />
+                                              </button>
+
                                         </div>
                                     </div>
                                 ))}
@@ -962,31 +1126,92 @@ export default function Dashboard() {
                         <label style={s.inputLabel}>{TXT.shopName[lang]}</label>
                         <input style={s.input} value={form.shop_name} onChange={e => handleInputChange("shop_name", e.target.value)} />
                     </div>
+                    {/* CITY INPUT SECTION WITH SUGGESTIONS & ADD LOGIC */}
                     <div style={{...s.inputGroup, position: "relative"}}>
                         <label style={s.inputLabel}>{TXT.cityName[lang]}</label>
-                        <input style={{...s.input, borderColor: (!citySelected && form.city_name) ? colors.danger : colors.border}} value={form.city_name} onChange={e => onCityTyping(e.target.value)} />
-                        {citySug.length > 0 && (
-                            <div style={{position: "absolute", top: "100%", width: "100%", background: "white", borderRadius: "10px", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)", zIndex: 50, maxHeight: "150px", overflowY: "auto", border: "1px solid #E2E8F0"}}>
+                        <input
+                            style={{
+                                ...s.input,
+                                borderColor: (!citySelected && form.city_name) ? colors.danger : colors.border
+                            }}
+                            value={form.city_name}
+                            onChange={e => onCityTyping(e.target.value)}
+                            placeholder="Type to search..."
+                        />
+                        {/* Dropdown Container */}
+                        {(citySug.length > 0 || (form.city_name && !citySelected)) && (
+                            <div style={{
+                                position: "absolute", top: "100%", width: "100%", background: "white",
+                                borderRadius: "10px", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
+                                zIndex: 100, maxHeight: "200px", overflowY: "auto", border: "1px solid #E2E8F0"
+                            }}>
+                                {/* API Results */}
                                 {citySug.map(c => (
-                                <div key={c._id} style={{padding: "10px", cursor: "pointer", borderBottom: "1px solid #eee", fontSize: "0.9rem"}} onClick={() => {
-                                    handleInputChange("city_id", c._id); handleInputChange("city_name", c.city_name);
-                                    handleInputChange("district", c.district); handleInputChange("pincode", c.pincode);
-                                    handleInputChange("state", c.state); setCitySelected(true); setCitySug([]);
-                                }}>
-                                    <strong>{c.city_name}</strong> - {c.pincode} <span style={{color: colors.subtext}}>({c.district})</span>
-                                </div>
+                                    <div
+                                        key={c._id}
+                                        onClick={() => selectExistingCity(c)}
+                                        style={{ padding: "10px", cursor: "pointer", borderBottom: "1px solid #f1f5f9" }}
+                                    >
+                                        <strong>{c.city_name}</strong> <span style={{color: colors.subtext, fontSize: "0.85rem"}}>– {c.pincode}</span>
+                                    </div>
                                 ))}
+
+                                {/* Add New City Option - Always visible if typing and not selected */}
+                                {form.city_name.trim() !== "" && (
+                                    <div
+                                        style={{
+                                            padding: "12px",
+                                            cursor: "pointer",
+                                            color: colors.primary,
+                                            fontWeight: 600,
+                                            backgroundColor: colors.primaryLight,
+                                            borderTop: "1px solid #E2E8F0"
+                                        }}
+                                        onClick={openAddCityModal}
+                                    >
+                                        <Icon icon="plus" style={{marginRight: "6px"}}/>
+                                        Add "{form.city_name}" as new city
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {!citySelected && form.city_name && (
+                            <div style={{fontSize: "0.75rem", color: colors.danger, marginTop: "4px"}}>
+                                {lang === "ta" ? "பட்டியலிலிருந்து ஒரு நகரத்தைத் தேர்ந்தெடுக்கவும்" : "Please select a city from list"}
                             </div>
                         )}
                     </div>
                 </div>
 
                 <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem"}}>
-                    <div style={s.inputGroup}><label style={s.inputLabel}>{TXT.district[lang]}</label><input style={s.input} value={form.district} onChange={e => handleInputChange("district", e.target.value)} /></div>
-                    <div style={s.inputGroup}><label style={s.inputLabel}>{TXT.pincode[lang]}</label><input style={s.input} value={form.pincode} onChange={e => handleInputChange("pincode", e.target.value)} /></div>
+                    {/* READ-ONLY FIELDS: District & Pincode */}
+                    <div style={s.inputGroup}>
+                        <label style={s.inputLabel}>{TXT.district[lang]}</label>
+                        <input
+                            style={{...s.input, backgroundColor: "#e2e8f0", cursor: "not-allowed"}}
+                            readOnly
+                            value={form.district}
+                        />
+                    </div>
+                    <div style={s.inputGroup}>
+                        <label style={s.inputLabel}>{TXT.pincode[lang]}</label>
+                        <input
+                            style={{...s.input, backgroundColor: "#e2e8f0", cursor: "not-allowed"}}
+                            readOnly
+                            value={form.pincode}
+                        />
+                    </div>
                 </div>
                 <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem"}}>
-                    <div style={s.inputGroup}><label style={s.inputLabel}>{TXT.state[lang]}</label><input style={s.input} value={form.state} onChange={e => handleInputChange("state", e.target.value)} /></div>
+                     {/* READ-ONLY FIELD: State */}
+                    <div style={s.inputGroup}>
+                        <label style={s.inputLabel}>{TXT.state[lang]}</label>
+                        <input
+                             style={{...s.input, backgroundColor: "#e2e8f0", cursor: "not-allowed"}}
+                             readOnly
+                             value={form.state}
+                        />
+                    </div>
                     <div style={s.inputGroup}><label style={s.inputLabel}>{TXT.landmark[lang]}</label><input style={s.input} value={form.landmark} onChange={e => handleInputChange("landmark", e.target.value)} /></div>
                 </div>
                 <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem"}}>
@@ -1057,6 +1282,66 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
+      {/* --- ADD NEW CITY MODAL (FIXED) --- */}
+      <AnimatePresence>
+      {showCityModal && (
+        <div style={s.overlay}>
+          <motion.div variants={modalVariants} initial="hidden" animate="visible" exit="exit" style={{ ...s.modal, maxWidth: "450px" }}>
+            <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem"}}>
+                <h3 style={s.modalTitle}>Add New City</h3>
+                <button style={{background: "none", border: "none", cursor: "pointer"}} onClick={() => setShowCityModal(false)}><Icon icon="cross" size={20} /></button>
+            </div>
+
+            <div style={s.inputGroup}>
+                <label style={s.inputLabel}>City Name</label>
+                <input
+                    style={s.input}
+                    value={newCity.city_name}
+                    onChange={e => setNewCity(p => ({ ...p, city_name: e.target.value }))}
+                />
+            </div>
+
+            <div style={s.inputGroup}>
+                <label style={s.inputLabel}>{TXT.district[lang]}</label>
+                <input
+                    style={s.input}
+                    value={newCity.district}
+                    onChange={e => setNewCity(p => ({ ...p, district: e.target.value }))}
+                />
+            </div>
+
+            <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem"}}>
+                <div style={s.inputGroup}>
+                    <label style={s.inputLabel}>{TXT.pincode[lang]}</label>
+                    <input
+                        style={s.input}
+                        value={newCity.pincode}
+                        onChange={e => setNewCity(p => ({ ...p, pincode: e.target.value }))}
+                    />
+                </div>
+                <div style={s.inputGroup}>
+                    <label style={s.inputLabel}>{TXT.state[lang]}</label>
+                    <input
+                        style={s.input}
+                        value={newCity.state}
+                        onChange={e => setNewCity(p => ({ ...p, state: e.target.value }))}
+                    />
+                </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
+              <button style={s.btn("outline")} onClick={() => setShowCityModal(false)}>
+                {TXT.cancel[lang]}
+              </button>
+              <button style={s.btn("success")} onClick={handleSaveNewCity} disabled={isCitySaving}>
+                {isCitySaving ? TXT.saving[lang] : "Save City"}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+      </AnimatePresence>
+
       {/* --- ADD/UPDATE OFFER MODAL --- */}
       <AnimatePresence>
         {(showOfferForm || showUpdateOfferForm) && (
@@ -1069,7 +1354,7 @@ export default function Dashboard() {
 
                     {showOfferForm && (
                         <div style={s.inputGroup}>
-                            <label style={s.inputLabel}>{TXT.selectShop[lang]}</label>
+                            <label style={s.inputLabel}>{TXT.selectShop[lang]} *</label>
                             <select style={s.input} value={offerForm.shop_id} onChange={e => setOfferForm(prev => ({...prev, shop_id: e.target.value}))}>
                                 <option value="">Select...</option>
                                 {shops.map(s => <option key={s.shop._id} value={s.shop._id}>{s.shop.shop_name}</option>)}
@@ -1078,39 +1363,39 @@ export default function Dashboard() {
                     )}
 
                     <div style={s.inputGroup}>
-                        <label style={s.inputLabel}>{TXT.offerTitle[lang]}</label>
+                        <label style={s.inputLabel}>{TXT.offerTitle[lang] * 1}</label>
                         <input style={s.input} value={showUpdateOfferForm ? updateOfferForm.title : offerForm.title} onChange={e => showUpdateOfferForm ? setUpdateOfferForm(p => ({...p, title: e.target.value})) : setOfferForm(p => ({...p, title: e.target.value}))} />
                     </div>
 
                     <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem"}}>
                         <div style={s.inputGroup}>
-                            <label style={s.inputLabel}>{TXT.feeOptional[lang]}</label>
+                            <label style={s.inputLabel}>{TXT.feeOptional[lang]} *</label>
                             <input style={s.input} value={showUpdateOfferForm ? updateOfferForm.fee : offerForm.fee} onChange={e => showUpdateOfferForm ? setUpdateOfferForm(p => ({...p, fee: e.target.value})) : setOfferForm(p => ({...p, fee: e.target.value}))} />
                         </div>
                         <div style={s.inputGroup}>
-                            <label style={s.inputLabel}>{TXT.percentageLimit[lang]}</label>
+                            <label style={s.inputLabel}>{TXT.percentageLimit[lang]} *</label>
                             <input style={s.input} value={showUpdateOfferForm ? updateOfferForm.percentage : offerForm.percentage} onChange={e => showUpdateOfferForm ? setUpdateOfferForm(p => ({...p, percentage: e.target.value})) : setOfferForm(p => ({...p, percentage: e.target.value}))} />
                         </div>
                     </div>
 
                     <div style={{display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem"}}>
                          <div style={s.inputGroup}>
-                            <label style={s.inputLabel}>Start Date</label>
+                            <label style={s.inputLabel}>Start Date *</label>
                             <input type="date" style={s.input} value={showUpdateOfferForm ? updateOfferForm.start_date : offerForm.start_date} onChange={e => showUpdateOfferForm ? setUpdateOfferForm(p => ({...p, start_date: e.target.value})) : setOfferForm(p => ({...p, start_date: e.target.value}))} />
                         </div>
                          <div style={s.inputGroup}>
-                            <label style={s.inputLabel}>End Date</label>
+                            <label style={s.inputLabel}>End Date *</label>
                             <input type="date" style={s.input} value={showUpdateOfferForm ? updateOfferForm.end_date : offerForm.end_date} onChange={e => showUpdateOfferForm ? setUpdateOfferForm(p => ({...p, end_date: e.target.value})) : setOfferForm(p => ({...p, end_date: e.target.value}))} />
                         </div>
                     </div>
 
                     <div style={s.inputGroup}>
-                         <label style={s.inputLabel}>{TXT.description[lang]}</label>
+                         <label style={s.inputLabel}>{TXT.description[lang]} *</label>
                          <textarea style={{...s.input, minHeight: "80px"}} value={showUpdateOfferForm ? updateOfferForm.description : offerForm.description} onChange={e => showUpdateOfferForm ? setUpdateOfferForm(p => ({...p, description: e.target.value})) : setOfferForm(p => ({...p, description: e.target.value}))} />
                     </div>
 
                     <div style={{background: "#F1F5F9", padding: "1rem", borderRadius: "10px", marginBottom: "1.5rem"}}>
-                         <label style={s.inputLabel}>{TXT.mediaFileLabel[lang]}</label>
+                         <label style={s.inputLabel}>{TXT.mediaFileLabel[lang]} *</label>
                          <input type="file" accept="image/*,video/*" onChange={e => handleOfferFile(e.target.files[0], showUpdateOfferForm)} style={{fontSize: "0.9rem"}} />
                          {(showUpdateOfferForm ? updateOfferPreview : offerPreview) && (
                             <div style={{marginTop: "10px", height: "100px", borderRadius: "8px", overflow: "hidden", border: "1px solid #ddd", display: "inline-block"}}>
@@ -1191,33 +1476,54 @@ export default function Dashboard() {
            </div>
 
            <div style={s.galleryMain} onClick={e => e.stopPropagation()}>
-             {gallery.mediaList.length > 0 && (
+             {gallery.mediaList.length > 1 && (
                <>
                  <button style={{position: "absolute", left: "20px", background: "rgba(255,255,255,0.1)", color: "white", border: "none", padding: "1rem", borderRadius: "50%", cursor: "pointer", backdropFilter: "blur(4px)"}} onClick={prevSlide}><Icon icon="chevron-left" size={30}/></button>
-                 {gallery.mediaList[gallery.currentIndex].type === "video" ? (
-                   <video controls autoPlay src={mediaUrl(gallery.mediaList[gallery.currentIndex].path)} style={s.galleryImg} />
-                 ) : (
-                   <img src={mediaUrl(gallery.mediaList[gallery.currentIndex].path)} style={s.galleryImg} alt="" />
-                 )}
+               </>
+             )}
+
+             {gallery.mediaList.length > 0 && gallery.mediaList[gallery.currentIndex] && (
+               gallery.mediaList[gallery.currentIndex].type === "video" ? (
+                 <video controls autoPlay src={mediaUrl(gallery.mediaList[gallery.currentIndex].path)} style={s.galleryImg} />
+               ) : (
+                 <img src={mediaUrl(gallery.mediaList[gallery.currentIndex].path)} style={s.galleryImg} alt="" />
+               )
+             )}
+
+             {gallery.mediaList.length > 1 && (
+               <>
                  <button style={{position: "absolute", right: "20px", background: "rgba(255,255,255,0.1)", color: "white", border: "none", padding: "1rem", borderRadius: "50%", cursor: "pointer", backdropFilter: "blur(4px)"}} onClick={nextSlide}><Icon icon="chevron-right" size={30}/></button>
                </>
              )}
            </div>
 
-           <div style={s.galleryStrip} onClick={e => e.stopPropagation()}>
-             {gallery.mediaList.map((m, i) => (
-                 <div key={i} onClick={() => setGallery(p => ({...p, currentIndex: i}))} style={{height: "100%", opacity: i === gallery.currentIndex ? 1 : 0.4, transition: "opacity 0.2s", cursor: "pointer", border: i === gallery.currentIndex ? `2px solid ${colors.primary}` : "none"}}>
-                    {m.type === "video" ? <video src={mediaUrl(m.path)} style={{height: "100%"}} muted /> : <img src={mediaUrl(m.path)} style={{height: "100%"}} alt="" />}
-                 </div>
-             ))}
-           </div>
+           {/* Thumbnails Strip - Only show if more than 1 image */}
+           {gallery.mediaList.length > 1 && (
+               <div style={s.galleryStrip} onClick={e => e.stopPropagation()}>
+                 {gallery.mediaList.map((m, i) => (
+                     <div key={i} onClick={() => setGallery(p => ({...p, currentIndex: i}))} style={{height: "100%", opacity: i === gallery.currentIndex ? 1 : 0.4, transition: "opacity 0.2s", cursor: "pointer", border: i === gallery.currentIndex ? `2px solid ${colors.primary}` : "none"}}>
+                        {m.type === "video" ? <video src={mediaUrl(m.path)} style={{height: "100%"}} muted /> : <img src={mediaUrl(m.path)} style={{height: "100%"}} alt="" />}
+                     </div>
+                 ))}
+               </div>
+           )}
         </div>
       )}
 
       {/* --- POPUP TOAST --- */}
       <AnimatePresence>
         {popup && (
-            <motion.div variants={popupVariants} initial="initial" animate="animate" exit="exit" style={s.popupToast(popup.type)}>
+            <motion.div
+                variants={popupVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                style={{ ...s.popupToast(popup.type), cursor: popup.onClick ? "pointer" : "default" }}
+                onClick={() => {
+                  if (popup.onClick) popup.onClick();
+                }}
+              >
+
                 <div style={{color: popup.type === 'success' ? colors.success : popup.type === 'error' ? colors.danger : "#F59E0B"}}>
                     <Icon icon={popup.type === 'success' ? 'tick-circle' : popup.type === 'error' ? 'error' : 'warning-sign'} iconSize={28} />
                 </div>
@@ -1227,8 +1533,10 @@ export default function Dashboard() {
                 </div>
                 <div onClick={() => setPopup(null)} style={{cursor: "pointer", marginLeft: "auto", color: "#94A3B8"}}><Icon icon="cross" size={16} /></div>
             </motion.div>
+
         )}
       </AnimatePresence>
+      <Footer/>
 
     </div>
   );

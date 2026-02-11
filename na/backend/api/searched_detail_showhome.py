@@ -12,8 +12,7 @@ router = APIRouter()
 col_category = db["category"]
 col_shop = db["shop"]
 col_reviews = db["reviews"]
-col_view_logs = db["shop_view_logs"]
-col_view_reports = db["shop_view_reports"]
+
 
 
 # --------------------------------------------------

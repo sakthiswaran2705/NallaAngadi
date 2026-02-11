@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@blueprintjs/core";
 import Navbar from "./Navbar";
+import Footer from "./footer.jsx"
 
 const API_BASE = import.meta.env.VITE_BACKEND_URL;
 const HIGHEST_PLAN = "premium";
@@ -408,6 +409,7 @@ function Payments() {
           </div>
         </div>
       </div>
+        <Footer/>
     </div>
   );
 }

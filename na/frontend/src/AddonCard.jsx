@@ -5,44 +5,49 @@ import { motion } from "framer-motion";
 const API_BASE = import.meta.env.VITE_BACKEND_URL;
 
 // ==========================================================
-// 1. TRANSLATION TEXT (Manual Method)
+// 1. CONFIG & TRANSLATIONS
 // ==========================================================
+const LANG = localStorage.getItem("LANG") || "en";
+
 const TXT = {
+  // General
   loginReq: { en: "Please login to buy add-ons", ta: "கூடுதல் சலுகைகளை வாங்க உள்நுழையவும்" },
   rzpFail: { en: "Razorpay failed to load", ta: "ரேஸர்பேவை ஏற்ற முடியவில்லை" },
   orderFail: { en: "Order failed", ta: "ஆர்டர் தோல்வியடைந்தது" },
-  packName: { en: "Extra Offer Pack", ta: "கூடுதல் சலுகை தொகுப்பு" },
-  purchaseSuccess: { en: "Purchase Successful", ta: "கொள்முதல் வெற்றிகரமாக முடிந்தது" },
   verifyFail: { en: "Verification failed", ta: "சரிபார்ப்பு தோல்வியடைந்தது" },
   payVerifyErr: { en: "Payment verification error", ta: "கட்டண சரிபார்ப்பு பிழை" },
   initFail: { en: "Could not initiate payment", ta: "கட்டணத்தைத் தொடங்க முடியவில்லை" },
   error: { en: "Error", ta: "பிழை" },
-  title: { en: "Need more offers?", ta: "மேலும் சலுகைகள் தேவையா?" },
-  subtitle: { en: "Buy one-time extra limit. Valid forever.", ta: "கூடுதல் வரம்பை வாங்கவும். வாழ்நாள் முழுவதும் செல்லும்." },
-  perOffer: { en: "/offer", ta: "/சலுகை" },
   processing: { en: "Processing...", ta: "செயலாக்குகிறது..." },
   buyPrefix: { en: "Buy for ₹", ta: "வாங்க ₹" },
-  // Dynamic description parts
-  buyDescPart1: { en: "Buy", ta: "வாங்க" },
-  buyDescPart2: { en: "Extra Offers", ta: "கூடுதல் சலுகைகள்" }
+  purchaseSuccess: { en: "Purchase Successful", ta: "கொள்முதல் வெற்றிகரமாக முடிந்தது" },
+
+  // Offer Addon
+  offerTitle: { en: "Add more offers?", ta: "மேலும் சலுகைகள் தேவையா?" },
+  offerSubtitle: { en: "Buy one-time extra limit. ", ta: "கூடுதல் வரம்பை வாங்கவும்." },
+  offerPack: { en: "Extra Offer Pack", ta: "கூடுதல் சலுகை தொகுப்பு" },
+  unitOffer: { en: "/offer", ta: "/சலுகை" },
+
+  // Shop Addon
+  shopTitle: { en: "Add more shops?", ta: "மேலும் கடைகள் தேவையா?" },
+  shopSubtitle: { en: "Add more branches or shop profiles.", ta: "கூடுதல் கிளைகள் அல்லது கடைகளைச் சேர்க்கவும்." },
+  shopPack: { en: "Extra Shop Pack", ta: "கூடுதல் கடை தொகுப்பு" },
+  unitShop: { en: "/shop", ta: "/கடை" }
 };
 
-export default function AddonCard({ activePlanName, showPopup }) {
-  // ==========================================================
-  // 2. HELPER: GET LANGUAGE
-  // ==========================================================
-  const lang = localStorage.getItem("LANG") || "en";
-  const t = (key) => TXT[key]?.[lang] || TXT[key]?.en || key;
+// Helper to get text
+const t = (key) => TXT[key]?.[LANG] || TXT[key]?.en || key;
 
+// ==========================================================
+// 2. REUSABLE ROW COMPONENT
+// ==========================================================
+const AddonRow = ({ type, price, titleKey, subKey, packNameKey, unitKey, showPopup }) => {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
 
   const loadRazorpayScript = () => {
     return new Promise((resolve) => {
-      if (window.Razorpay) {
-        resolve(true);
-        return;
-      }
+      if (window.Razorpay) { resolve(true); return; }
       const script = document.createElement("script");
       script.src = "https://checkout.razorpay.com/v1/checkout.js";
       script.onload = () => resolve(true);
@@ -67,38 +72,32 @@ export default function AddonCard({ activePlanName, showPopup }) {
     setLoading(true);
 
     try {
+      // 1. Create Order
       const res = await fetch(`${API_BASE}/payment/addon/create-order/`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ quantity }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ quantity, type }), // Pass type explicitly
       });
 
       const data = await res.json();
       if (!data.status) throw new Error(data.detail || t("orderFail"));
 
-      // Dynamic Description based on Language
-      const description = lang === 'ta'
-        ? `${quantity} ${t("buyDescPart2")}`
-        : `Buy ${quantity} Extra Offers`;
+      const packName = t(packNameKey);
 
+      // 2. Open Razorpay
       const options = {
         key: data.key_id,
         amount: data.amount,
         currency: "INR",
-        name: t("packName"),
-        description: description,
+        name: packName,
+        description: `${packName} (x${quantity})`,
         order_id: data.order_id,
         handler: async function (response) {
           try {
+            // 3. Verify Payment
             const vRes = await fetch(`${API_BASE}/payment/addon/verify/`, {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
               body: JSON.stringify(response),
             });
 
@@ -115,7 +114,7 @@ export default function AddonCard({ activePlanName, showPopup }) {
             setLoading(false);
           }
         },
-        theme: { color: "#F59E0B" },
+        theme: { color: type === 'extra_shop' ? "#3B82F6" : "#F59E0B" }, // Blue for Shop, Gold for Offer
       };
 
       const rzp = new window.Razorpay(options);
@@ -128,90 +127,126 @@ export default function AddonCard({ activePlanName, showPopup }) {
     }
   };
 
+  // Styles dynamic based on type
+  const isShop = type === 'extra_shop';
+  const themeColor = isShop ? "#2563EB" : "#92400E"; // Blue vs Brown
+  const bgColor = isShop ? "linear-gradient(to right, #EFF6FF, #DBEAFE)" : "linear-gradient(to right, #FFFBEB, #FEF3C7)";
+  const borderColor = isShop ? "#3B82F6" : "#F59E0B";
+  const btnColor = isShop ? "#2563EB" : "#F59E0B";
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: 0.2 }}
-      style={styles.container}
-    >
+    <div style={{ ...styles.rowContainer, background: bgColor, borderColor: borderColor }}>
       <div style={styles.left}>
-        <div style={styles.iconBox}>
-          <Icon icon="add" size={24} color="#B45309" />
+        <div style={{ ...styles.iconBox, background: isShop ? "#BFDBFE" : "#FDE68A" }}>
+          <Icon icon={isShop ? "shop" : "tag"} size={24} color={themeColor} />
         </div>
         <div style={{ textAlign: "left" }}>
-          <h3 style={styles.title}>{t("title")}</h3>
-          <p style={styles.sub}>{t("subtitle")}</p>
+          <h3 style={{ ...styles.title, color: themeColor }}>{t(titleKey)}</h3>
+          <p style={{ ...styles.sub, color: themeColor, opacity: 0.8 }}>{t(subKey)}</p>
         </div>
       </div>
 
       <div style={styles.right}>
-        <div style={styles.priceTag}>₹50 <span style={{ fontSize: 12, fontWeight: 400, color: "#92400E" }}>{t("perOffer")}</span></div>
+        <div style={{ ...styles.priceTag, color: themeColor }}>
+          ₹{price} <span style={{ fontSize: 12, fontWeight: 400 }}>{t(unitKey)}</span>
+        </div>
 
-        <div style={styles.counter}>
-          <button style={styles.btnIcon} onClick={() => setQuantity(q => Math.max(1, q - 1))}>-</button>
-          <span style={styles.countDisplay}>{quantity}</span>
-          <button style={styles.btnIcon} onClick={() => setQuantity(q => q + 1)}>+</button>
+        <div style={{ ...styles.counter, borderColor: borderColor }}>
+          <button style={{ ...styles.btnIcon, color: themeColor }} onClick={() => setQuantity(q => Math.max(1, q - 1))}>-</button>
+          <span style={{ ...styles.countDisplay, color: themeColor }}>{quantity}</span>
+          <button style={{ ...styles.btnIcon, color: themeColor }} onClick={() => setQuantity(q => q + 1)}>+</button>
         </div>
 
         <button
           style={{
             ...styles.buyBtn,
+            background: btnColor,
             opacity: loading ? 0.7 : 1,
             cursor: loading ? "wait" : "pointer"
           }}
           onClick={handleBuy}
           disabled={loading}
         >
-          {loading ? t("processing") : `${t("buyPrefix")}${quantity * 50}`}
+          {loading ? t("processing") : `${t("buyPrefix")}${quantity * price}`}
         </button>
       </div>
+    </div>
+  );
+};
+
+// ==========================================================
+// 3. MAIN COMPONENT
+// ==========================================================
+export default function AddonCard({ activePlanName, showPopup }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.2 }}
+      style={{ maxWidth: "800px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "20px" }}
+    >
+        <AddonRow
+        type="extra_shop"
+        price={100} // Assuming same price as backend
+        titleKey="shopTitle"
+        subKey="shopSubtitle"
+        packNameKey="shopPack"
+        unitKey="unitShop"
+        showPopup={showPopup}
+      />
+      {/* 1. EXTRA OFFERS */}
+      <AddonRow
+        type="extra_offer"
+        price={50}
+        titleKey="offerTitle"
+        subKey="offerSubtitle"
+        packNameKey="offerPack"
+        unitKey="unitOffer"
+        showPopup={showPopup}
+      />
+
     </motion.div>
   );
 }
 
+// ==========================================================
+// 4. STYLES
+// ==========================================================
 const styles = {
-  container: {
-    background: "linear-gradient(to right, #FFFBEB, #FEF3C7)",
-    border: "1px solid #F59E0B",
+  rowContainer: {
+    border: "1px solid",
     borderRadius: "16px",
-    fontFamily: "'Noto Sans Tamil', sans-serif", // Corrected Property Name
     padding: "20px 30px",
-    marginTop: "50px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     flexWrap: "wrap",
     gap: "20px",
-    maxWidth: "800px",
-    marginLeft: "auto",
-    marginRight: "auto",
-    boxShadow: "0 10px 15px -3px rgba(245, 158, 11, 0.1), 0 4px 6px -2px rgba(245, 158, 11, 0.05)"
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05)",
+    transition: "transform 0.2s ease"
   },
   left: { display: "flex", alignItems: "center", gap: "15px", flex: "1 1 300px" },
   iconBox: {
-    width: "48px", height: "48px", borderRadius: "50%", background: "#FDE68A",
+    width: "48px", height: "48px", borderRadius: "50%",
     display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
   },
-  title: { margin: 0, color: "#92400E", fontSize: "18px", fontWeight: "800", marginBottom: "4px" },
-  sub: { margin: 0, color: "#B45309", fontSize: "14px", fontWeight: "500" },
+  title: { margin: 0, fontSize: "18px", fontWeight: "800", marginBottom: "4px" },
+  sub: { margin: 0, fontSize: "14px", fontWeight: "500" },
   right: { display: "flex", alignItems: "center", gap: "20px", flexWrap: "wrap", justifyContent: "flex-end", flex: "1 1 300px" },
-  priceTag: { fontSize: "20px", fontWeight: "800", color: "#92400E" },
+  priceTag: { fontSize: "20px", fontWeight: "800" },
   counter: {
     display: "flex", alignItems: "center", background: "#fff",
-    borderRadius: "10px", border: "2px solid #FCD34D", height: "40px"
+    borderRadius: "10px", borderWidth: "2px", borderStyle: "solid", height: "40px"
   },
   btnIcon: {
     border: "none", background: "transparent", width: "35px", height: "100%",
-    cursor: "pointer", fontWeight: "bold", color: "#B45309", fontSize: "16px"
+    cursor: "pointer", fontWeight: "bold", fontSize: "16px"
   },
-  countDisplay: { width: "30px", textAlign: "center", fontWeight: "700", color: "#78350F", fontSize: "16px" },
+  countDisplay: { width: "30px", textAlign: "center", fontWeight: "700", fontSize: "16px" },
   buyBtn: {
-    background: "#F59E0B", color: "white", border: "none", padding: "0 24px", height: "42px",
+    color: "white", border: "none", padding: "0 24px", height: "42px",
     borderRadius: "10px", fontWeight: "700", fontSize: "15px",
-    fontFamily: "'Noto Sans Tamil', sans-serif", // Corrected Property Name
-    boxShadow: "0 4px 6px -1px rgba(245, 158, 11, 0.4)",
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
     transition: "transform 0.1s"
   }
 };
