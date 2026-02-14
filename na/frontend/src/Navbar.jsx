@@ -170,7 +170,7 @@ function Navbar() {
 
   // --- NEW: WHATSAPP CALL HANDLER ---
   const handleCallClick = () => {
-    window.open("https://wa.me/+917868998544", "_blank");
+    window.open("https://wa.me/+916382650189", "_blank");
   };
 
   const changeLang = (lang) => {
