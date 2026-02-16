@@ -160,47 +160,25 @@ def oid(x): return str(x) if isinstance(x, ObjectId) else x
 
 
 @router.post("/register/", operation_id="registerUser")
-def register(
-    firstname: str = Form(None),
-    lastname: str = Form(None),
-    email: str = Form(None),
-    phone: int = Form(None),   # ✅ INT ONLY
-    password: str = Form(...)
-):
-    if not email and not phone:
-        return {"status": False, "message": "Email or phone number required"}
-
+def register(firstname: str = Form(None), lastname: str = Form(None), email: str = Form(None), phone: int = Form(None),
+             password: str = Form(...)):
+    if not email and not phone: return {"status": False, "message": "Email or phone number required"}
     email = email.strip().lower() if email else None
-    phone = int(phone) if phone is not None else None  # ✅ FIX
-
-    if email and col_user.find_one({"email": email}, {"_id": 1}):
-        return {"status": False, "message": "Email already exists"}
-
-    if phone and col_user.find_one({"phonenumber": phone}, {"_id": 1}):
-        return {"status": False, "message": "Phone number already exists"}
+    phone = phone.strip() if phone else None
+    if email and col_user.find_one({"email": email}, {"_id": 1}): return {"status": False,
+                                                                          "message": "Email already exists"}
+    if phone and col_user.find_one({"phonenumber": phone}, {"_id": 1}): return {"status": False,
+                                                                                "message": "Phone number already exists"}
 
     user_id = col_user.insert_one({
-        "firstname": firstname,
-        "lastname": lastname,
-        "email": email,
-        "phonenumber": phone,
-        "password": hash_password(password),
-
-        # ✅ IMPORTANT
-        "status": False,  # user inactive
-
-        "created_at": datetime.utcnow(),
-        "notification_settings": {
+        "password": hash_password(password), "firstname": firstname, "lastname": lastname,
+        "email": email, "phonenumber": phone, "created_at": datetime.utcnow(), "notification_settings": {
             "email": True,
             "push": True
         }
     }).inserted_id
+    return {"status": True, "user_id": str(user_id), "message": "Registered successfully"}
 
-    return {
-        "status": True,
-        "user_id": str(user_id),
-        "message": "Registered successfully"
-    }
 
 @router.post("/login/", operation_id="loginUser")
 def login(
@@ -225,13 +203,6 @@ def login(
             "message": "Invalid login credentials"
         }
 
-
-    if user.get("status") is False:
-        return {
-            "status": False,
-            "message": "Account not activated. Please wait for approval."
-        }
-
     u_id = str(user["_id"])
 
     return {
@@ -248,7 +219,6 @@ def login(
             "value": identifier
         }
     }
-
 @router.post("/refresh/", operation_id="refreshToken")
 def refresh_token_api(data: dict = Body(...)):
     refresh_token = data.get("refresh_token")
