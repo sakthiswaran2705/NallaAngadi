@@ -118,7 +118,6 @@ export default function Auth() {
     try {
       const fd = new FormData();
       fd.append("username", loginValue);
-
       fd.append("password", password);
 
       const res = await fetch(`${BACKEND_URL}/login/`, {
@@ -141,12 +140,8 @@ export default function Auth() {
         setTimeout(() => { navigate(redirectPath, { replace: true }); }, 1500);
 
       } else {
-        const msg = (data.message || "").toLowerCase();
-        if (msg.includes("approval") || msg.includes("pending") || msg.includes("active") || msg.includes("verify")) {
-            setModalType("warning");
-        } else {
-            showToast("error", "Invalid credentials or account not found.", "Login Failed");
-        }
+        // REMOVED ADMIN APPROVAL CHECK HERE
+        showToast("error", "Invalid credentials or account not found.", "Login Failed");
       }
     } catch (err) {
       showToast("error", "A server connection error occurred.", "Network Error");
@@ -184,7 +179,7 @@ export default function Auth() {
 
       if (data?.status === true) {
         setModalType("success");
-        setIsLogin(true);
+        setIsLogin(true); // Switch to login view immediately behind modal
         setPassword("");
         setConfirmPassword("");
         setRegEmail("");
@@ -276,24 +271,24 @@ export default function Auth() {
       <Navbar/>
         <style>
         {`
-            :root { 
-                --success: #10b981; 
-                --error: #ef4444; 
-                --warning: #f59e0b; 
+            :root {
+                --success: #10b981;
+                --error: #ef4444;
+                --warning: #f59e0b;
                 --primary: #1976D2;
             }
             /* Toast */
-            .custom-popup-toast { 
-                position: fixed; top: 20px; right: 20px; z-index: 999999; 
+            .custom-popup-toast {
+                position: fixed; top: 20px; right: 20px; z-index: 999999;
                 min-width: 320px; max-width: 400px;
-                background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); 
-                border-radius: 16px; padding: 16px; 
-                box-shadow: 0 20px 40px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.8); 
-                display: flex; align-items: flex-start; gap: 12px; 
+                background: rgba(255,255,255,0.95); backdrop-filter: blur(12px);
+                border-radius: 16px; padding: 16px;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.8);
+                display: flex; align-items: flex-start; gap: 12px;
             }
-            .popup-icon-box { 
-                width: 40px; height: 40px; border-radius: 12px; display: flex; 
-                align-items: center; justify-content: center; flex-shrink: 0; 
+            .popup-icon-box {
+                width: 40px; height: 40px; border-radius: 12px; display: flex;
+                align-items: center; justify-content: center; flex-shrink: 0;
             }
             .popup-icon-box.success { background: rgba(16, 185, 129, 0.15); color: var(--success); }
             .popup-icon-box.error { background: rgba(239, 68, 68, 0.15); color: var(--error); }
@@ -314,15 +309,15 @@ export default function Auth() {
                 position: relative; overflow: hidden;
             }
             .modal-icon-circle {
-                width: 84px; height: 84px; margin: 0 auto 28px; border-radius: 50%; 
+                width: 84px; height: 84px; margin: 0 auto 28px; border-radius: 50%;
                 display: flex; align-items: center; justify-content: center;
             }
             .modal-icon-circle.success { background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); }
             .modal-icon-circle.warning { background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); }
-            
+
             .modal-title { font-size: 26px; font-weight: 800; color: #111827; margin: 0 0 6px 0; }
             .modal-title-ta { font-size: 18px; font-weight: 600; color: #374151; margin: 0 0 24px 0; font-family: 'Mukta Malar', sans-serif; }
-            
+
             .modal-body { background: #f8fafc; border-radius: 12px; padding: 24px; margin-bottom: 32px; border: 1px solid #e2e8f0; }
             .body-en { font-size: 15px; color: #334155; font-weight: 600; margin: 0 0 12px 0; }
             .body-ta { font-size: 14px; color: #64748b; font-weight: 500; margin: 0; font-family: 'Mukta Malar', sans-serif; }
@@ -508,32 +503,13 @@ export default function Auth() {
                                 <motion.path d="M20 6L9 17l-5-5" variants={iconDrawVariants} initial="hidden" animate="visible" />
                             </svg>
                         </div>
-                        <h2 className="modal-title">Registration Successful!</h2>
-                        <h3 className="modal-title-ta">பதிவு வெற்றிகரமாக முடிந்தது!</h3>
+                        <h2 className="modal-title">Account Created!</h2>
+                        <h3 className="modal-title-ta">கணக்கு வெற்றிகரமாக உருவாக்கப்பட்டது!</h3>
                         <div className="modal-body">
-                            <p className="body-en">Your account has been created successfully.<br/>Please wait for admin approval before logging in.</p>
-                            <p className="body-ta">உங்கள் கணக்கு வெற்றிகரமாக உருவாக்கப்பட்டுள்ளது.<br/>Admin ஒப்புதல் கிடைத்த பிறகு Login செய்யலாம்.</p>
+                            <p className="body-en">Your registration was successful.<br/>You can now log in with your credentials.</p>
+                            <p className="body-ta">உங்கள் பதிவு வெற்றிகரமாக முடிந்தது.<br/>இப்போது உங்கள் தகவல்களைப் பயன்படுத்தி உள்நுழையலாம்.</p>
                         </div>
-                        <button className="modal-btn success" onClick={() => setModalType(null)}>OK, Got it</button>
-                    </motion.div>
-                )}
-
-                {modalType === "warning" && (
-                    <motion.div className="modal-card" variants={modalVariants}>
-                         <div className="modal-icon-circle warning">
-                            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <motion.path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" variants={iconDrawVariants} initial="hidden" animate="visible" />
-                                <motion.line x1="12" y1="9" x2="12" y2="13" variants={iconDrawVariants} initial="hidden" animate="visible" />
-                                <motion.line x1="12" y1="17" x2="12.01" y2="17" variants={iconDrawVariants} initial="hidden" animate="visible" />
-                            </svg>
-                        </div>
-                        <h2 className="modal-title">Waiting for Admin Approval</h2>
-                        <h3 className="modal-title-ta">Admin ஒப்புதல் நிலுவையில் உள்ளது</h3>
-                        <div className="modal-body">
-                            <p className="body-en">Your account is currently under admin review.<br/>Login is not allowed until admin approval is completed.</p>
-                            <p className="body-ta">உங்கள் கணக்கு தற்போது Admin ஒப்புதலுக்காக காத்திருக்கிறது.<br/>Admin ஒப்புதல் கிடைக்கும் வரை Login அனுமதிக்கப்படாது.</p>
-                        </div>
-                        <button className="modal-btn warning" onClick={() => setModalType(null)}>OK</button>
+                        <button className="modal-btn success" onClick={() => setModalType(null)}>OK, Login Now</button>
                     </motion.div>
                 )}
             </motion.div>
