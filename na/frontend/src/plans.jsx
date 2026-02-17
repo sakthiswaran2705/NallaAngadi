@@ -284,6 +284,7 @@ const styles = {
     includesTitle: { fontSize: "11px", fontWeight: "700", marginBottom: "16px", textTransform: "uppercase", opacity: 0.4 },
     featureItem: { marginBottom: "12px", fontSize: "14px", display: "flex", opacity: 0.9 },
 
+
     starterBadgeContainer: { width: "100%", padding: "14px", background: "#f9fafb", borderRadius: "12px", border: "1px dashed #d1d5db", marginTop: "10px" },
     starterBadgeText: { fontSize: "14px", fontWeight: "600", color: "#6b7280" },
     cardStarter: { background: "#fff", width: "320px", padding: "32px 24px", borderRadius: "20px", border: "1px solid #e5e7eb", position: "relative" },
@@ -338,3 +339,5 @@ const styles = {
       zIndex: 5
     }
 };
+
+
