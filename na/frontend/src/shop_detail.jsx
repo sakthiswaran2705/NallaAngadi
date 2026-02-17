@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@blueprintjs/core";
 import Navbar from "./Navbar.jsx";
-import Footer from "./footer.jsx"
+import Footer from "./footer.jsx";
+
 const API_BASE = import.meta.env.VITE_BACKEND_URL;
 
 // ==========================================================
@@ -28,7 +29,6 @@ const TXT = {
   delete: { en: "Delete", ta: "நீக்கு" },
   loginReq: { en: "Login Required", ta: "உள்நுழைவு தேவை" },
   loginMsg: { en: "Please login to perform this action.", ta: "தயவுசெய்து உள்நுழையவும்." },
-  // ⭐ Added Description Translations
   about: { en: "About this Shop", ta: "கடை பற்றி" },
   noDesc: { en: "No description available.", ta: "விளக்கம் இல்லை." }
 };
@@ -114,14 +114,16 @@ function ShopDetails() {
   // Normalize Data
   const normalizeShop = (data) => {
       if (!data) return {};
-      // Handle both _id and shop_id variations
       const id = data._id || data.shop_id;
       return { ...data, _id: id, shop_id: id };
   };
 
+  // Initial Data
   const initialShopDoc = normalizeShop(restoredState.shop);
-  const cityDoc = restoredState.city || (initialShopDoc.city && typeof initialShopDoc.city === 'object' ? initialShopDoc.city : { city_name: initialShopDoc.city || "" });
   const shopId = initialShopDoc.shop_id;
+
+  // Derive city name safely (Avoid creating new objects on every render)
+  const initialCityName = restoredState.city?.city_name || (typeof initialShopDoc.city === 'string' ? initialShopDoc.city : initialShopDoc.city?.city_name || "");
 
   // --------------------------------------------------------
   // B. LOCAL STATE
@@ -146,16 +148,28 @@ function ShopDetails() {
   const [popup, setPopup] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
 
-  // Helper to safely get fields from state
+  // Helper to safely get fields
   const getField = (key) => {
-      // Prioritize the fetched detailed state, fallback to initial state
-      return shopDetails[key] || initialShopDoc[key] || "N/A";
+      let value = shopDetails[key] || initialShopDoc[key] || "N/A";
+      if (typeof value === "string") {
+        value = value.replace(/(\r\n|\n|\r)/gm, "");
+        value = value.replace(/,/g, ", ");
+        value = value.replace(/\s+/g, " ").trim();
+      }
+      return value;
   };
+
+  // ⭐ CRITICAL FIX: Calculate current city name as a variable
+  // This ensures we have a stable string for the useEffect dependency
+  const currentCityName = shopDetails.city && typeof shopDetails.city === 'string'
+      ? shopDetails.city
+      : initialCityName;
 
   // --------------------------------------------------------
   // C. EFFECTS
   // --------------------------------------------------------
 
+  // 1. Fetch Latest Details
   useEffect(() => {
     if (shopId) {
         setReady(true);
@@ -172,25 +186,40 @@ function ShopDetails() {
     }
   }, [shopId, lang]);
 
-  // Load Media
+  // 2. Load Media
   useEffect(() => {
-    if (!shopId) return;
-    fetch(`${API_BASE}/shop/${shopId}/media/`)
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.status && json.media) {
-          const formattedMedia = json.media.map((item) => ({ type: item.type, url: `${API_BASE}/${item.path}` }));
-          setMediaList(formattedMedia);
-          if (json.main_image) {
-             const mainUrl = `${API_BASE}/${json.main_image}`;
-             const found = formattedMedia.find(m => m.url === mainUrl);
-             setMainMedia(found || { type: 'image', url: mainUrl });
-          } else setMainMedia(formattedMedia[0] || null);
-        }
-      }).catch(err => console.error(err));
-  }, [shopId]);
+      if (!shopId) return;
 
-  // Load Reviews
+      fetch(`${API_BASE}/shop/${shopId}/media/`)
+        .then((res) => res.json())
+        .then((json) => {
+          let formattedMedia = [];
+          if (json.status && json.media && json.media.length > 0) {
+            formattedMedia = json.media.map((item) => ({
+              type: item.type || "image",
+              url: item.path.startsWith("http") ? item.path : `${API_BASE}/${item.path}`
+            }));
+            setMediaList(formattedMedia);
+            setMainMedia(formattedMedia[0]);
+            setCurrentIndex(0);
+          } else {
+            const rawImage = restoredState?.shop?.main_image || initialShopDoc?.main_image;
+            if (rawImage) {
+              const finalUrl = rawImage.startsWith("http") ? rawImage : `${API_BASE}/${rawImage}`;
+              const fallbackMedia = [{ type: "image", url: finalUrl }];
+              setMediaList(fallbackMedia);
+              setMainMedia(fallbackMedia[0]);
+              setCurrentIndex(0);
+            } else {
+              setMainMedia(null);
+              setMediaList([]);
+            }
+          }
+        })
+        .catch(err => console.error("Media load error:", err));
+    }, [shopId]);
+
+  // 3. Load Reviews
   useEffect(() => {
     if (!shopId) return;
     fetch(`${API_BASE}/shop/${shopId}/reviews/`)
@@ -203,67 +232,58 @@ function ShopDetails() {
       });
   }, [shopId]);
 
-  // Load Top Rated
+  // 4. Load Top Rated (STRICTLY BY CITY - FIXED LOOP)
   useEffect(() => {
-      if (!shopId) return;
-      setLoadingTopRated(true);
-
-      const homeResultsRaw = sessionStorage.getItem("HOME_RESULTS");
-
-      if (homeResultsRaw) {
-          try {
-              const homeResults = JSON.parse(homeResultsRaw);
-              const formatted = homeResults.map(item => ({
-                  shop_id: item.shop._id || item.shop.shop_id,
-                  shop_name: item.shop.shop_name,
-                  city: item.city.city_name,
-                  image: item.shop.image || item.shop.main_image,
-                  average_rating: item.shop.average_rating,
-                  review_count: item.shop.review_count,
-                  phone_number: item.shop.phone_number,
-                  address: item.shop.address,
-                  email: item.shop.email,
-                  landmark: item.shop.landmark,
-                  description: item.shop.description
-              }));
-
-              const filtered = formatted.filter(item => String(item.shop_id) !== String(shopId));
-              setTopRatedShops(filtered.slice(0, 5));
-              setLoadingTopRated(false);
-              return;
-          } catch (e) { console.error("Error parsing HOME_RESULTS", e); }
+      // If we don't have a valid city name string, don't fetch
+      if (!shopId || !currentCityName) {
+          setLoadingTopRated(false);
+          return;
       }
 
-      const cityName = cityDoc?.city_name || "";
-      let queryParams = `lang=${lang}&limit=10`;
-      if (cityName) queryParams += `&city=${encodeURIComponent(cityName)}`;
+      setLoadingTopRated(true);
 
-      fetch(`${API_BASE}/shops/top-rated?${queryParams}`)
+      const queryParams = `lang=${lang}&limit=10&city=${encodeURIComponent(currentCityName)}`;
+
+      fetch(`${API_BASE}/shops/top-rated/?${queryParams}`)
           .then(res => res.json())
           .then(json => {
               if (json.status && json.data) {
-                  const filtered = json.data.filter(item => String(item.shop_id) !== String(shopId));
+                  let filtered = json.data
+                      .filter(item => String(item.shop_id) !== String(shopId))
+                      .sort((a, b) => {
+                          if (b.average_rating === a.average_rating) {
+                              return (b.review_count || 0) - (a.review_count || 0);
+                          }
+                          return (b.average_rating || 0) - (a.average_rating || 0);
+                      });
+
+                  if (filtered.some(s => s.average_rating > 0)) {
+                      filtered = filtered.filter(s => s.average_rating > 0);
+                  }
+
                   setTopRatedShops(filtered.slice(0, 5));
               } else {
                   setTopRatedShops([]);
               }
               setLoadingTopRated(false);
           })
-          .catch(err => { console.error(err); setLoadingTopRated(false); });
+          .catch(e => {
+              console.error("Top rated error", e);
+              setLoadingTopRated(false);
+          });
 
-  }, [shopId, lang, cityDoc?.city_name]);
-console.log("API_BASE =", API_BASE);
+  }, [shopId, lang, currentCityName]);
+  // FIX: Dependency is now a STRING variable (currentCityName), not an object.
+  // This prevents infinite loops.
 
-  // Update Views
+  // 5. Update Views
   useEffect(() => {
       if (!ready || !shopId) return;
       const viewedKey = `VIEWED_SHOP_${shopId}`;
       const isViewed = sessionStorage.getItem(viewedKey);
-      const endpoint = isViewed
-	  ? `${API_BASE}/shop/views/${shopId}/`
-	  : `${API_BASE}/shop/view/${shopId}/`;
-
+      const endpoint = isViewed ? `${API_BASE}/shop/views/${shopId}/` : `${API_BASE}/shop/view/${shopId}/`;
       const method = isViewed ? "GET" : "POST";
+
       fetch(endpoint, { method: method }).then(res => res.json()).then(json => {
           if (json.status) { setViews(json.total_views); if (!isViewed) sessionStorage.setItem(viewedKey, "1"); }
       }).catch(err => console.error(err));
@@ -385,8 +405,14 @@ console.log("API_BASE =", API_BASE);
                 border: 1px solid #e2e8f0; overflow: hidden; margin-bottom: 24px;
             }
             .sticky-info-card {
-                position: sticky; top: 90px; background: white; border-radius: 20px;
-                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; padding: 24px;
+                position: sticky;
+                top: 90px;
+                background: white;
+                border-radius: 20px;
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+                border: 1px solid #e2e8f0;
+                padding: 24px;
+                min-width: 0;
             }
             .back-btn {
                 background: white; border: 1px solid #cbd5e1; padding: 10px 20px; border-radius: 50px;
@@ -413,7 +439,23 @@ console.log("API_BASE =", API_BASE);
             }
             .thumb-item.active { border-color: #00c6ff; transform: scale(1.05); }
             .thumb-item img, .thumb-item video { width: 100%; height: 100%; object-fit: cover; }
-            .shop-title { font-size: 2.2rem; font-weight: 800; color: #1e293b; margin-bottom: 5px; line-height: 1.1; }
+            .shop-title {
+                font-size: 2.2rem;
+                font-weight: 800;
+                color: #1e293b;
+                margin-bottom: 5px;
+                line-height: 1.3;
+                word-break: keep-all;
+                overflow-wrap: normal;
+                white-space: normal;
+            }
+            .address-text {
+                word-break: break-word;
+                overflow-wrap: anywhere;
+                white-space: normal;
+                flex: 1;
+                min-width: 0;
+            }
             .rating-badge {
                 background: #fffbeb; color: #b45309; padding: 6px 12px; border-radius: 8px;
                 font-weight: 700; display: inline-flex; align-items: center; gap: 5px; font-size: 15px; margin-bottom: 15px;
@@ -424,7 +466,14 @@ console.log("API_BASE =", API_BASE);
                 box-shadow: 0 4px 15px rgba(253, 185, 49, 0.4); transition: transform 0.2s;
             }
             .offer-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(253, 185, 49, 0.5); }
-            .contact-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; font-size: 15px; color: #475569; }
+            .contact-row {
+                display: flex;
+                align-items: flex-start;
+                gap: 12px;
+                margin-bottom: 18px;
+                font-size: 15px;
+                color: #475569;
+            }
             .contact-icon { color: #3b82f6; width: 24px; height: 24px; flex-shrink: 0; }
             .star-input { font-size: 32px; cursor: pointer; transition: transform 0.1s; color: #e2e8f0; }
             .star-input.active { color: #f59e0b; }
@@ -504,7 +553,7 @@ console.log("API_BASE =", API_BASE);
                     ) : <div className="p-5 text-center text-muted">No Images Available</div>}
                 </div>
 
-                {/* ⭐ NEW: DESCRIPTION CARD */}
+                {/* DESCRIPTION CARD */}
                 <div className="content-card p-4">
                     <h5 className="fw-bold text-dark mb-3">{t("about")}</h5>
                     <p className="text-secondary mb-0" style={{ whiteSpace: 'pre-line', lineHeight: '1.6' }}>
@@ -574,7 +623,10 @@ console.log("API_BASE =", API_BASE);
             {/* RIGHT COLUMN */}
             <div className="col-lg-4">
                 <div className="sticky-info-card">
-                    <h1 className="shop-title">{getField("shop_name")}</h1>
+                    <h1 className="shop-title">
+                          {getField("shop_name")?.replace(/\s+/g, " ").trim()}
+                    </h1>
+
                     <div className="rating-badge">
                         <Icon icon="star" color="#b45309" style={{marginBottom:2}}/> {avgRating || "New"}
                         {reviews.length > 0 && <span className="ms-1 fw-normal text-muted">({reviews.length})</span>}
@@ -582,20 +634,31 @@ console.log("API_BASE =", API_BASE);
                     <div className="mb-3 text-muted fw-bold small d-flex align-items-center gap-2">
                         <Icon icon="eye-open" color="#94a3b8"/> {views} {t("viewsText")}
                     </div>
-                    <p className="text-secondary fw-bold mb-4"><Icon icon="map-marker" /> {cityDoc.city_name}</p>
                     <hr className="my-4 border-light" />
                     <h5 className="fw-bold text-dark mb-4">{t("contactInfo")}</h5>
 
                     {/* FETCHED DATA */}
                     <div className="contact-row"><Icon icon="phone" className="contact-icon"/> <a href={`tel:${getField("phone_number")}`} className="text-decoration-none text-dark fw-bold">{getField("phone_number") === "N/A" ? "No Phone" : getField("phone_number")}</a></div>
-                    <div className="contact-row"><Icon icon="envelope" className="contact-icon"/> {getField("email") === "N/A" ? "No Email" : getField("email")}</div>
-                    <div className="contact-row"><Icon icon="geolocation" className="contact-icon"/> {getField("address")}</div>
+                    <div className="contact-row">
+                        <Icon icon="envelope" className="contact-icon"/>
+                        <span className="address-text">
+                            {getField("email") === "N/A" ? "No Email" : getField("email")}
+                        </span>
+                    </div>
 
-                    {/* LANDMARK */}
+                    <div className="contact-row">
+                        <Icon icon="geolocation" className="contact-icon"/>
+                        <span className="address-text">
+                            {getField("address")}
+                        </span>
+                    </div>
+
                     {getField("landmark") && getField("landmark") !== "N/A" && (
                         <div className="contact-row">
                             <Icon icon="flag" className="contact-icon"/>
-                            <span><span className="fw-bold text-dark">Landmark:</span> {getField("landmark")}</span>
+                            <span className="address-text">
+                                <strong>Landmark:</strong> {getField("landmark")}
+                            </span>
                         </div>
                     )}
 
@@ -603,7 +666,7 @@ console.log("API_BASE =", API_BASE);
 
                     <hr className="my-4 border-light" />
 
-                    {/* CACHED TOP RATED SHOPS */}
+                    {/* TOP RATED SHOPS (FETCHED BY CITY) */}
                     <h5 className="fw-bold text-dark mb-3" style={{fontSize:'1rem'}}>{t("moreShops")}</h5>
                     <div className="d-flex flex-column gap-2">
                         {loadingTopRated ? (

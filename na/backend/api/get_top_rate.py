@@ -50,7 +50,7 @@ def resolve_shop_image(shop, cat_obj):
 
 
 # ---------------- TOP RATED (Fixed for Tamil Search) ----------------
-@router.get("/shops/top-rated", operation_id="getTopRatedShops")
+@router.get("/shops/top-rated/", operation_id="getTopRatedShops")
 def get_top_rated_shops(
         lang: str = Query("en"),
         city: str | None = Query(None),
@@ -93,18 +93,17 @@ def get_top_rated_shops(
                 if c:
                     db_city_name = c.get("city_name", "").lower()
 
-                    # ஆங்கிலத்தில் நேரடி பொருத்தம்
+
                     if db_city_name == input_city_lower:
                         is_nearby = True
 
-                    # தமிழுக்கான மாற்றம் (Fix applied here)
-                    # Database-ல் உள்ள ஆங்கில பெயரை தமிழுக்கு மாற்றி, பயனர் தந்த தமிழ் பெயரோடு ஒப்பிடுதல்
+
                     elif lang == "ta":
                         translated_db_city = translate_text_en_to_ta(c.get("city_name", "")).lower()
                         if translated_db_city == input_city_lower:
                             is_nearby = True
 
-        # 3. எதுவும் கொடுக்கவில்லை என்றால் அனைத்தையும் காட்டு
+
         if not city and lat is None:
             is_nearby = True
 

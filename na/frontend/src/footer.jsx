@@ -44,33 +44,37 @@ const Footer = () => {
 
                 .footer-link {
                     font-size: 0.95rem;
-                    color: #64748b;
-                    text-decoration: none;
-                    transition: all 0.3s ease;
+                    color: #64748b !important;
+                    text-decoration: none !important;   /* remove bootstrap underline */
+                    transition: color 0.3s ease;
                     font-weight: 500;
                     position: relative;
+                    display: inline-block;
                 }
 
+                /* Remove any default hover underline */
                 .footer-link:hover {
-                    color: #0072ff;
-                    transform: translateY(-2px);
+                    color: #0072ff !important;
+                    text-decoration: none !important;
                 }
 
-                /* Underline animation on hover */
+                /* Single animated underline */
                 .footer-link::after {
-                    content: '';
+                    content: "";
                     position: absolute;
-                    width: 0;
-                    height: 2px;
-                    bottom: -4px;
                     left: 0;
+                    bottom: -3px;
+                    width: 0%;
+                    height: 2px;
                     background-color: #0072ff;
                     transition: width 0.3s ease;
                 }
 
+                /* Animate only one line */
                 .footer-link:hover::after {
                     width: 100%;
                 }
+
 
                 .copyright-text {
                     color: #94a3b8;
