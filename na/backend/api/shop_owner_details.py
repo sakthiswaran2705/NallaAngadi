@@ -154,11 +154,6 @@ def hash_password(pwd): return hashlib.sha256(pwd.encode()).hexdigest()
 
 def oid(x): return str(x) if isinstance(x, ObjectId) else x
 
-
-
-#        AUTH & PROFILE
-
-
 @router.post("/register/", operation_id="registerUser")
 def register(
     firstname: str = Form(None),
