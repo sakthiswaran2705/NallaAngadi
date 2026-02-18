@@ -188,12 +188,10 @@ def register(
             "push": True
         }
     }).inserted_id
+    return {"status": True, "user_id": str(user_id), "message": "Registered successfully"}
 
-    return {
-        "status": True,
-        "user_id": str(user_id),
-        "message": "Registered successfully"
-    }
+
+
 
 
 
