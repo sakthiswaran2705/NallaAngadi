@@ -180,11 +180,15 @@ def register(firstname: str = Form(None), lastname: str = Form(None), email: str
     return {"status": True, "user_id": str(user_id), "message": "Registered successfully"}
 
 
+
+
 @router.post("/login/", operation_id="loginUser")
 def login(
     username: str = Form(...),
     password: str = Form(...)
 ):
+
+
     identifier = username.strip()
 
 
