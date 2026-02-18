@@ -187,7 +187,7 @@ def login(
 ):
     identifier = username.strip()
 
-    # 🔍 Check whether input is phone number or email
+
     if identifier.isdigit():
         query = {"phonenumber": int(identifier)}
         login_method = "phone"
