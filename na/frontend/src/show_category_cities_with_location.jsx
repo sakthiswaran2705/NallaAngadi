@@ -526,10 +526,10 @@ function Val() {
 
                 /* SLIDESHOW STYLES (MODIFIED HEIGHT) */
                 .slideshow-wrapper { max-width: 1000px; margin: 0 auto 60px auto; }
-                .modern-slideshow-container { 
-                    width: 100%; 
+                .modern-slideshow-container {
+                    width: 100%;
                     height: 520px; /* MODIFIED: Increased Height */
-                    border-radius: 30px; overflow: hidden; overflow: hidden; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); background: #0f172a; 
+                    border-radius: 30px; overflow: hidden; overflow: hidden; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); background: #0f172a;
                 }
                 .slide-media { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; cursor: pointer; object-fit: cover; display: block; }
                 .modern-slideshow-container:hover .slide-media { transform: scale(1.05); }
@@ -747,9 +747,19 @@ function Val() {
                                 <span style={{color: 'var(--primary-dark)', marginRight: '10px'}}>🚀</span>
                                 {t("Explore Categories")}
                             </h4>
-                            <Button minimal intent="primary" onClick={() => navigate('/all-categories')} style={{fontWeight:'bold'}}>
-                                {t("View All")} <i className="bp4-icon bp4-icon-arrow-right ms-1"></i>
-                            </Button>
+                            <Button
+                      minimal
+                      onClick={() => navigate("/all-categories")}
+                      style={{
+                        fontWeight:         "bold",
+
+                        color: "white",
+
+                      }}
+                    >
+                      {t("View All")}
+                      <i className="bp4-icon bp4-icon-arrow-right ms-1"></i>
+                    </Button>
                         </div>
 
                         {isCatLoading ? (
