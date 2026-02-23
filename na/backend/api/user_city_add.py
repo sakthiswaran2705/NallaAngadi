@@ -8,13 +8,9 @@ router = APIRouter()
 collection = db["city"]
 col_user = db["user"]
 
-# ================= JWT =================
 
 
-
-# -------------------------------------------------
-# HELPER: CITY → LAT / LNG (OpenStreetMap)
-# -------------------------------------------------
+# HELPER: CITY
 def get_city_latlng(city_name: str, state: str = None):
     query = city_name
     if state:
@@ -41,9 +37,7 @@ def get_city_latlng(city_name: str, state: str = None):
         return None, None
 
 
-# -------------------------------------------------
-# CREATE CITY (ADMIN)
-# -------------------------------------------------
+# CREATE CITY
 @router.post("/city/add/")
 def add_city(
     city_name: str = Form(...),
@@ -52,6 +46,11 @@ def add_city(
     state: str = Form(...),
     user_id: str = Depends(verify_token),
 ):
+
+    city_name = city_name.strip().title()
+    district = district.strip().title()
+    state = state.strip().title()
+
     # 🔍 Check by pincode only
     exist = collection.find_one({"pincode": pincode})
 
