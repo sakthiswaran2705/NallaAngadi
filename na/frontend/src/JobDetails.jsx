@@ -132,7 +132,7 @@ export default function JobDetails() {
 
                 {/* ACTION BUTTONS (Sticky Bottom or Just Bottom) */}
                 <div style={styles.actionFooter}>
-                    <a href="tel:+917868998544" style={styles.callBtn}>
+                    <a href="tel:+916382650189" style={styles.callBtn}>
                       {lang === "en" ? "Call Now" : "தொடர்புக்கு "}
                     </a>
 
