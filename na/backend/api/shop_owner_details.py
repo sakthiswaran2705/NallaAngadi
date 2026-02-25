@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from common_urldb import db
 
 # --- EMAIL IMPORT ---
-# Ensure this path matches your project structure
+
 from email_sender import send_email
 
 from auth_jwt import (
