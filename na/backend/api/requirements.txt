@@ -11,7 +11,7 @@ PyJWT
 deep-translator
 cachetools
 razorpay==1.4.2
-setuptools
+setuptools<82.0.0
 redis
 sendgrid
 pandas
