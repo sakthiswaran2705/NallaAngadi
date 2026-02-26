@@ -169,7 +169,7 @@ function Val() {
 
             setIsTopRatedLoading(true);
             try {
-                let url = `${API_BASE}/shops/top-rated?lang=${lang}&limit=6`;
+                let url = `${API_BASE}/shops/top-rated/?lang=${lang}&limit=6`;
 
                 if (cityInput) url += `&city=${encodeURIComponent(cityInput)}`;
                 if (coords.lat && coords.lon) {
