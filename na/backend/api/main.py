@@ -27,7 +27,7 @@ import threading
 import time
 from plan_expire_action import process_expired_plans
 from user_city_add import router as user_city_add_router
-
+from Kallar_padaipatru import router as KallarPadaipatru_router
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 import warnings
@@ -76,6 +76,7 @@ app.include_router(notification_settings_router)
 app.include_router(shop_views_router)
 app.include_router(get_top)
 app.include_router(user_city_add_router)
+app.include_router(KallarPadaipatru_router)
 # -------------------- ROOT --------------------
 @app.get("/")
 def root():
