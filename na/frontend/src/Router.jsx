@@ -23,7 +23,7 @@ import Refund from "./Refund";
 import UravugalForm from "./uravugal"
 import Payments from "./payments"
 import AllCategories from "./AllCategories"
-import BannerRequest from "./Add_banner"
+
 import Kallarpadaipatru from "./Kallar_Padaipatru"
 function RouterPage() {
   return (
@@ -34,7 +34,7 @@ function RouterPage() {
       <Route path="/kallarpadaipatru" element={<Kallarpadaipatru />} />
       {/* SEARCH */}
       <Route path="/results" element={<SearchResults />} />
-       <Route path="/banner-request" element={<BannerRequest />} />
+  
       {/* AUTH */}
       <Route path="/login" element={<Auth />} />
        <Route path="/settings" element={<Settings />} />
