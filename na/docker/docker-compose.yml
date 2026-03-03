@@ -10,6 +10,9 @@ services:
       - ../nginx/conf:/etc/nginx/conf.d
       - ../nginx/certbot/conf:/etc/letsencrypt
       - ../nginx/certbot/www:/var/www/certbot
+      #- ../nginx/conf:/etc/nginx/conf.d:ro
+      #- ../nginx/letsencrypt:/etc/letsencrypt:ro  # <-- THIS IS CRITICAL
+      #- ../nginx/certbot/www:/var/www/certbot:ro
     depends_on:
       - frontend
       - backend
@@ -20,7 +23,10 @@ services:
     volumes:
       - ../nginx/certbot/conf:/etc/letsencrypt
       - ../nginx/certbot/www:/var/www/certbot
-    command: certonly --webroot -w /var/www/certbot -d nallaangadi.com -d www.nallaangadi.com -d api.nallaangadi.com --email ugkarthikgk@mail.com --agree-tos --no-eff-email
+      #- ../nginx/letsencrypt:/etc/letsencrypt
+      #- ../nginx/certbot/www:/var/www/certbot
+    #command: certonly --webroot -w /var/www/certbot -d nallaangadi.com -d www.nallaangadi.com -d api.nallaangadi.com --email ugkarthikgk@mail.com --agree-tos --no-eff-email 
+    command: renew --non-interactive --webroot -w /var/www/certbot
 
   backend:
     container_name: fastapi-app

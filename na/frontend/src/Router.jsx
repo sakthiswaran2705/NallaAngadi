@@ -23,6 +23,7 @@ import Refund from "./Refund";
 import UravugalForm from "./uravugal"
 import Payments from "./payments"
 import AllCategories from "./AllCategories"
+
 import Kallarpadaipatru from "./Kallar_Padaipatru"
 function RouterPage() {
   return (
@@ -33,7 +34,7 @@ function RouterPage() {
       <Route path="/kallarpadaipatru" element={<Kallarpadaipatru />} />
       {/* SEARCH */}
       <Route path="/results" element={<SearchResults />} />
-      
+  
       {/* AUTH */}
       <Route path="/login" element={<Auth />} />
        <Route path="/settings" element={<Settings />} />
